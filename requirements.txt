@@ -1,4 +1,6 @@
 # Add your requirements here like:
 # numpy
 # scipy>=0.9
-
+luigi
+psycopg2
+-e git+https://github.com/UCL-ShippingGroup/pyrate.git#egg=pyrate-v0.1.4
