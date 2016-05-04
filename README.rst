@@ -2,18 +2,16 @@
 superpyrate
 ===========
 
+.. image:: https://travis-ci.com/UCL-ShippingGroup/superpyrate.svg?token=zHcMSQsYgUFq9yhr52P7&branch=master
+    :target: https://travis-ci.com/UCL-ShippingGroup/superpyrate
 
-Add a short description here!
+Does what pyrate does, but supercharged.
 
 
 Description
 ===========
 
-A LONGER DESCRIPTION OF YOUR PROJECT GOES HERE...
+Superpyrate ingests AIS data in parallel to a postgres database, and provides
+a framework for running algorithms and tasks on this AIS data.
 
-
-Note
-====
-
-This project has been set up using PyScaffold 2.5.5. For details and usage
-information on PyScaffold see http://pyscaffold.readthedocs.org/.
+Superpyrate rests heavily on [luigi](http://luigi.readthedocs.io/en/stable/).
