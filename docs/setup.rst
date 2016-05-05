@@ -6,9 +6,7 @@ Setup
 
 Requirements
 
-postgresql>9.5
-
-.. code-block bash
+First, install postgres::
 
     cd $HOME
     wget https://ftp.postgresql.org/pub/source/v9.5.2/postgresql-9.5.2.tar.gz
@@ -23,6 +21,8 @@ postgresql>9.5
     # Setup path
     echo 'PATH=$HOME/pgsql/bin:$PATH' >> ~/.bash_profile
 
+
+Installing postgis, is painful::
 
     # Obtain, compile and install postgis and its requirements (GEOS, PROJ4, GDAL)
     cd $HOME
@@ -67,19 +67,20 @@ postgresql>9.5
     tar xf postgis-2.2.2.tar.gz
     cd postgis-2.2.2
     ./configure --prefix=$HOME/postgis
+    ./make
+    ./make install
 
-
-
+Setting up the database::
 
     # Initialise the database server using Scratch for the data
-    initdb -D ~/Scratch/data
-    # Start the database server
-    pg_ctl -D ~/Scratch/data -l logfile start
+    initdb -D $HOME/Scratch/data
+    # Spin up the database server
+    pg_ctl -D $HOME/Scratch/data -l logfile start
 
     # Create the test database
     createdb test_aisdb
     # Use the following command to access the database schema and tables
-    #psql --host=localhost --port=5432 --username=***REMOVED*** --dbname=test_aisdb
+    #psql --host=localhost --port=5432 --username=test_ais --dbname=test_aisdb
 
     psql -U postgres -c "create extension postgis"
     psql -c "create database test_aisdb;" -U postgres
@@ -87,7 +88,8 @@ postgresql>9.5
     psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE test_aisdb to test_ais;"
 
 
-    # Setup virtual python environment using conda
+Setup virtual python environment using conda::
+
     wget http://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh \
     -O miniconda.sh
     chmod +x miniconda.sh && ./miniconda.sh -b -p $HOME/miniconda
@@ -99,7 +101,8 @@ postgresql>9.5
     conda create -n testenv --yes python=$PYTHON_VERSION pip scipy pandas numpy psycopg2 sphinx pylint
     source activate testenv
 
-    cd ~/
+    cd $HOME
     git clone https://github.com/UCL-ShippingGroup/superpyrate.git
+    cd superpyrate
     pip install -r requirements.txt
     python setup.py develop
