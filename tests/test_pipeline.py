@@ -5,6 +5,7 @@
 
 import pytest
 from superpyrate import pipeline
+from luigi import mock
 
 __author__ = "Will Usher"
 __copyright__ = "Will Usher"

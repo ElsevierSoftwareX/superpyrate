@@ -1,5 +1,6 @@
 import luigi
 from luigi import six, postgres
+from luigi.contrib.sge import SGEJobTask as SGEJobTask
 from pyrate.algorithms.aisparser import readcsv, parse_raw_row, AIS_CSV_COLUMNS, validate_row
 from pyrate.repositories.aisdb import AISdb
 import csv
@@ -11,35 +12,35 @@ import os
 logger = logging.getLogger('luigi-interface')
 
 class Pipeline(luigi.WrapperTask):
-    """Wrapper task which performs the entire pipeline
+    """Wrapper task which performs the entire ingest pipeline
     """
     # Pass in folder with CSV files to parse into Database when calling luigi from the command line: luigi --module superpyrate.pipeline Pipeline --aiscsv-folder ./aiscsv --local-scheduler --workers=2
     aiscsv_folder = luigi.Parameter()
-    
+
     def requires(self):
         # yield [ValidMessagesToDatabase(in_file, os.path.abspath(self.aiscsv_folder)) for in_file in os.listdir(self.aiscsv_folder) if in_file.endswith('.csv')]
         yield [LoadCleanedAIS(in_file, os.path.abspath(self.aiscsv_folder)) for in_file in os.listdir(self.aiscsv_folder) if in_file.endswith('.csv')]
 
 class SourceFiles(luigi.ExternalTask):
-    
+
     in_file = luigi.Parameter()
     aiscsv_folder = luigi.Parameter()
-    
+
     def output(self):
         return luigi.file.LocalTarget(self.aiscsv_folder + '/' + self.in_file)
 
 
-class ValidMessages(luigi.Task):
+class ValidMessages(SGEJobTask):
     """ Takes AIS messages and runs validation functions, generating valid csv
     files in folder called 'cleancsv' at the same level as aiscsv_folder
     """
     in_file = luigi.Parameter()
     aiscsv_folder = luigi.Parameter()
-    
+
     def requires(self):
         return SourceFiles(self.in_file, self.aiscsv_folder)
 
-    def run(self):
+    def work(self):
         iterator = readcsv(self.input().open('r'))
         # Do validation and write a new file of valid messages
         f = self.output().open('w')
@@ -76,7 +77,7 @@ class ValidMessages(luigi.Task):
         return luigi.file.LocalTarget(clean_file_out)
 
 class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
-    
+
     in_file = luigi.Parameter()
     aiscsv_folder = luigi.Parameter()
 
@@ -161,7 +162,7 @@ class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
         connection.close()
 
 class LoadCleanedAIS(luigi.postgres.CopyToTable):
-    """ 
+    """
     Execute ValidMessagesToDatabase and update ais_sources table with name of CSV processed
     """
 
