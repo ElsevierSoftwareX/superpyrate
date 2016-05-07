@@ -1,6 +1,6 @@
 import luigi
 from luigi import six, postgres
-from luigi.contrib.sge import SGEJobTask as SGEJobTask
+from luigi.contrib.sge import LocalSGEJobTask as SGEJobTask
 from pyrate.algorithms.aisparser import readcsv, parse_raw_row, AIS_CSV_COLUMNS, validate_row
 from pyrate.repositories.aisdb import AISdb
 import csv
