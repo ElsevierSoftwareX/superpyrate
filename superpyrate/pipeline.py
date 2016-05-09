@@ -1,6 +1,7 @@
 import luigi
 from luigi import six, postgres
-from luigi.contrib.sge import LocalSGEJobTask as SGEJobTask
+from luigi.util import inherits
+from luigi.contrib.sge import SGEJobTask as SGEJobTask
 from pyrate.algorithms.aisparser import readcsv, parse_raw_row, AIS_CSV_COLUMNS, validate_row
 from pyrate.repositories.aisdb import AISdb
 import csv
@@ -30,6 +31,7 @@ class SourceFiles(luigi.ExternalTask):
         return luigi.file.LocalTarget(self.aiscsv_folder + '/' + self.in_file)
 
 
+@inherits(SourceFiles)
 class ValidMessages(SGEJobTask):
     """ Takes AIS messages and runs validation functions, generating valid csv
     files in folder called 'cleancsv' at the same level as aiscsv_folder
@@ -76,6 +78,7 @@ class ValidMessages(SGEJobTask):
         clean_file_out = os.path.dirname(self.aiscsv_folder) + '/cleancsv/' + self.in_file
         return luigi.file.LocalTarget(clean_file_out)
 
+@inherits(ValidMessages)
 class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
 
     in_file = luigi.Parameter()
