@@ -17,19 +17,26 @@ class Pipeline(luigi.WrapperTask):
     """Wrapper task which performs the entire ingest pipeline
     """
     # Pass in folder with CSV files to parse into Database when calling luigi from the command line: luigi --module superpyrate.pipeline Pipeline --aiscsv-folder ./aiscsv --local-scheduler --workers=2
-    aiscsv_folder = luigi.Parameter()
+    source_path = luigi.Parameter()
 
     def requires(self):
-        # yield [ValidMessagesToDatabase(in_file, os.path.abspath(self.aiscsv_folder)) for in_file in os.listdir(self.aiscsv_folder) if in_file.endswith('.csv')]
-        yield [LoadCleanedAIS(in_file, os.path.abspath(self.aiscsv_folder)) for in_file in os.listdir(self.aiscsv_folder) if in_file.endswith('.csv')]
+        yield [LoadCleanedAIS(in_file, os.path.abspath(self.source_path)) for in_file in os.listdir(self.source_path) if in_file.endswith('.csv')]
+
+class Pipeline_Valid_Messages(luigi.WrapperTask):
+    """This wrapper just runs the validate messages task
+    """
+    source_path = luigi.Parameter()
+
+    def requires(self):
+        yield [ValidMessages(in_file, source_path) for in_file in os.listdir(self.source_path) if in_file.endswith('.csv')]
 
 class SourceFiles(luigi.ExternalTask):
 
     in_file = luigi.Parameter()
-    aiscsv_folder = luigi.Parameter()
+    source_path = luigi.Parameter()
 
     def output(self):
-        return luigi.file.LocalTarget(self.aiscsv_folder + '/' + self.in_file)
+        return luigi.file.LocalTarget(self.source_path + '/' + self.in_file)
 
     def output(self):
         base_path = os.path.join(self.source_path,
@@ -41,13 +48,13 @@ class SourceFiles(luigi.ExternalTask):
 
 class ValidMessages(luigi.Task):
     """ Takes AIS messages and runs validation functions, generating valid csv
-    files in folder called 'cleancsv' at the same level as aiscsv_folder
+    files in folder called 'cleancsv' at the same level as source_path
     """
     in_file = luigi.Parameter()
-    aiscsv_folder = luigi.Parameter()
+    source_path = luigi.Parameter()
 
     def requires(self):
-        return SourceFiles(self.in_file, self.aiscsv_folder)
+        return SourceFiles(self.in_file, self.source_path)
 
     def run(self):
         with self.input().open('r') as infile:
@@ -55,13 +62,13 @@ class ValidMessages(luigi.Task):
                 produce_valid_csv_file(infile, outfile)
 
     def output(self):
-        clean_file_out = os.path.dirname(self.aiscsv_folder) + '/cleancsv/' + self.in_file
+        clean_file_out = os.path.dirname(self.source_path) + '/cleancsv/' + self.in_file
         return luigi.file.LocalTarget(clean_file_out)
 
 class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
 
     in_file = luigi.Parameter()
-    aiscsv_folder = luigi.Parameter()
+    source_path = luigi.Parameter()
 
     null_values = (None,"")
     column_separator = ","
@@ -91,7 +98,7 @@ class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
                 # yield [x for x in line.strip('\n').split(',') ]
 
     def requires(self):
-        return ValidMessages(self.in_file, self.aiscsv_folder)
+        return ValidMessages(self.in_file, self.source_path)
 
     def copy(self, cursor, file):
         if isinstance(self.columns[0], six.string_types):
@@ -149,7 +156,7 @@ class LoadCleanedAIS(luigi.postgres.CopyToTable):
     """
 
     in_file = luigi.Parameter()
-    aiscsv_folder = luigi.Parameter()
+    source_path = luigi.Parameter()
 
     null_values = (None,"")
     column_separator = ","
@@ -161,7 +168,7 @@ class LoadCleanedAIS(luigi.postgres.CopyToTable):
     table = "ais_sources"
 
     def requires(self):
-        return ValidMessagesToDatabase(self.in_file, self.aiscsv_folder)
+        return ValidMessagesToDatabase(self.in_file, self.source_path)
 
     def run(self):
         # Prepare source data to add to ais_sources
