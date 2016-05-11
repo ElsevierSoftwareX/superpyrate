@@ -35,9 +35,10 @@ class SourceFiles(luigi.ExternalTask):
         base_path = os.path.join(self.source_path,
                                  'exactEarth_historical_data_%Y%m%d.csv')
         date_path = self.date.strftime(base_path)
+        logger.debug(date_path)
         return luigi.file.LocalTarget(date_path)
 
-@inherits(SourceFiles)
+
 class ValidMessages(luigi.Task):
     """ Takes AIS messages and runs validation functions, generating valid csv
     files in folder called 'cleancsv' at the same level as aiscsv_folder
@@ -48,14 +49,15 @@ class ValidMessages(luigi.Task):
     def requires(self):
         return SourceFiles(self.in_file, self.aiscsv_folder)
 
-    def work(self):
-        produce_valid_csv_file(self.input(), self.output())
+    def run(self):
+        with self.input().open('r') as infile:
+            with self.output().open('w') as outfile:
+                produce_valid_csv_file(infile, outfile)
 
     def output(self):
         clean_file_out = os.path.dirname(self.aiscsv_folder) + '/cleancsv/' + self.in_file
         return luigi.file.LocalTarget(clean_file_out)
 
-@inherits(ValidMessages)
 class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
 
     in_file = luigi.Parameter()
