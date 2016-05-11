@@ -4,6 +4,7 @@ from luigi.util import inherits
 from luigi.contrib.sge import SGEJobTask as SGEJobTask
 from pyrate.algorithms.aisparser import readcsv, parse_raw_row, AIS_CSV_COLUMNS, validate_row
 from pyrate.repositories.aisdb import AISdb
+from superpyrate.tasks import produce_valid_csv_file
 import csv
 import datetime
 import psycopg2
@@ -30,9 +31,14 @@ class SourceFiles(luigi.ExternalTask):
     def output(self):
         return luigi.file.LocalTarget(self.aiscsv_folder + '/' + self.in_file)
 
+    def output(self):
+        base_path = os.path.join(self.source_path,
+                                 'exactEarth_historical_data_%Y%m%d.csv')
+        date_path = self.date.strftime(base_path)
+        return luigi.file.LocalTarget(date_path)
 
 @inherits(SourceFiles)
-class ValidMessages(SGEJobTask):
+class ValidMessages(luigi.Task):
     """ Takes AIS messages and runs validation functions, generating valid csv
     files in folder called 'cleancsv' at the same level as aiscsv_folder
     """
@@ -43,36 +49,7 @@ class ValidMessages(SGEJobTask):
         return SourceFiles(self.in_file, self.aiscsv_folder)
 
     def work(self):
-        iterator = readcsv(self.input().open('r'))
-        # Do validation and write a new file of valid messages
-        f = self.output().open('w')
-        writer = csv.DictWriter(f, dialect="excel", fieldnames=AIS_CSV_COLUMNS)
-        writer.writeheader()
-
-        # parse and iterate lines from the current file
-        for row in iterator:
-            converted_row = {}
-            try:
-                # parse raw data
-                converted_row = parse_raw_row(row)
-            except ValueError as e:
-                # invalid data in row. Write it to error log
-                if not 'raw' in row:
-                    row['raw'] = [row[c] for c in AIS_CSV_COLUMNS]
-                continue
-            except KeyError:
-                # missing data in row.
-                if not 'raw' in row:
-                    row['raw'] = [row[c] for c in AIS_CSV_COLUMNS]
-                continue
-
-            # validate parsed row and add to appropriate queue
-            try:
-                validated_row = validate_row(converted_row)
-                writer.writerow(validated_row)
-            except ValueError:
-                pass
-        f.close()
+        produce_valid_csv_file(self.input(), self.output())
 
     def output(self):
         clean_file_out = os.path.dirname(self.aiscsv_folder) + '/cleancsv/' + self.in_file
