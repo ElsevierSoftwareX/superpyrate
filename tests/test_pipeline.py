@@ -22,32 +22,7 @@ class TestFileNames():
         pass
 
 
-class TestGenerationOfValidCsv():
-    """
-    """
-    def test_valid_files_produced(self):
-        """ Once we have the files, check that some generated test files are
-        correctly ingested, including csv files where commas appear in fields
-        (e.g. in vessel names)
-        """
-        pass
 
-    def test_clean_files_produced(self):
-        """ Check that valid data goes into a clean folder
-        """
-        pass
-
-    def test_dirty_files_produced(self):
-        """ Check that data which doesn't pass validation goes into a dirty
-        folder
-        """
-        pass
-
-    def test_invalid_data_triggers_log_entry(self):
-        """ Rows which are invalid, i.e. cannot be read, should trigger an
-        entry in the logfile
-        """
-        pass
 
 
 class TestCopyFrom():
