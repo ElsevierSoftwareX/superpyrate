@@ -106,3 +106,12 @@ Setup virtual python environment using conda::
     cd superpyrate
     pip install -r requirements.txt
     python setup.py develop
+
+Add a configuration file for luigi
+
+    [Pipeline_Valid_Messages]
+    source_path=/path/to/source/ais/files
+
+    [core]
+    default-scheduler-host=123.456.78.90
+    default-scheduler-port=1234
