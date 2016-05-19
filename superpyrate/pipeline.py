@@ -17,7 +17,7 @@ class Pipeline(luigi.WrapperTask):
     """Wrapper task which performs the entire ingest pipeline
     """
     # Pass in folder with CSV files to parse into Database when calling luigi from the command line: luigi --module superpyrate.pipeline Pipeline --aiscsv-folder ./aiscsv --local-scheduler --workers=2
-    source_path = luigi.Parameter()
+    source_path = luigi.Parameter(default='./', significant=False)
 
     def requires(self):
         yield [LoadCleanedAIS(in_file, os.path.abspath(self.source_path)) for in_file in os.listdir(self.source_path) if in_file.endswith('.csv')]
@@ -28,7 +28,7 @@ class Pipeline_Valid_Messages(luigi.WrapperTask):
     source_path = luigi.Parameter()
 
     def requires(self):
-        yield [ValidMessages(in_file, source_path) for in_file in os.listdir(self.source_path) if in_file.endswith('.csv')]
+        yield [ValidMessages(in_file, self.source_path) for in_file in os.listdir(self.source_path) if in_file.endswith('.csv')]
 
 class SourceFiles(luigi.ExternalTask):
 
@@ -37,14 +37,6 @@ class SourceFiles(luigi.ExternalTask):
 
     def output(self):
         return luigi.file.LocalTarget(self.source_path + '/' + self.in_file)
-
-    def output(self):
-        base_path = os.path.join(self.source_path,
-                                 'exactEarth_historical_data_%Y%m%d.csv')
-        date_path = self.date.strftime(base_path)
-        logger.debug(date_path)
-        return luigi.file.LocalTarget(date_path)
-
 
 class ValidMessages(luigi.Task):
     """ Takes AIS messages and runs validation functions, generating valid csv
