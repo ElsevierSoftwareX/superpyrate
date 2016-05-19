@@ -101,6 +101,15 @@ Setup virtual python environment using conda::
     conda create -n testenv --yes python=$PYTHON_VERSION pip scipy pandas numpy psycopg2 sphinx pylint
     source activate testenv
 
+Before installing superpyrate, you'll need to setup your git account.  Enter the
+following commands:
+
+    git config --global user.name "YOUR NAME"
+    git config --global user.email "YOUR EMAIL ADDRESS"
+
+To access git from Legion, you'll need to setup a certificate and ssh access to
+git.  You can follow the instructions here https://help.github.com/articles/set-up-git/#platform-linux
+
     cd $HOME
     git clone https://github.com/UCL-ShippingGroup/superpyrate.git
     cd superpyrate
