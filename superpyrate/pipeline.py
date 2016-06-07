@@ -5,6 +5,12 @@ out of three sub-pipelines.
 2. Validate each of the csv files, processing using a derived version of the pyrate code,
    outputting vaidated csv files
 3. Using the postgres `copy` command, ingest the data directly into the database
+
+Entry points:
+ - ProcessZipArchives(folder_of_zips, shell_script, with_db)
+
+
+
 """
 import luigi
 from luigi import six, postgres
@@ -41,20 +47,25 @@ class GetFolderOfArchives(luigi.ExternalTask):
         return luigi.file.LocalTarget(self.folder_of_zips)
 
 
-class GetZipArchives(luigi.Task):
+class ProcessZipArchives(luigi.Task):
     """
     """
     folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
     shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
+    with_db = luigi.BooleanParameter(significant=False)
 
     def requires(self):
         GetFolderOfArchives(self.folder_of_zips)
 
     def run(self):
+        logger.warn("Database flag is {}".format(self.with_db))
         for archive in os.listdir(self.folder_of_zips):
             if os.path.splitext(archive)[1] == '.zip':
                 archive_path = os.path.join(self.folder_of_zips, archive)
-                yield ProcessCSVs(archive_path, self.shell_script)
+                if self.with_db:
+                    yield WriteCsvToDb(archive_path, self.shell_script)
+                else:
+                    yield ProcessCsv(archive_path, self.shell_script)
         # with self.output().open('w') as outfile:
         #     outfile.writeline("{}".format(self.folder_of_zips))
 
@@ -102,11 +113,11 @@ class UnzippedArchive(ExternalProgramTask):
         _, out_folder_name = os.path.split(out_root_dir)
         rootdir, _ = os.path.split(_)
         output_folder = os.path.join(rootdir,'tmp', 'unzipped', out_folder_name)
-        logger.debug("Unzipped {}".format(output_folder))
+        # logger.debug("Unzipped {}".format(output_folder))
         return luigi.file.LocalTarget(output_folder)
 
 
-class ProcessCSVs(luigi.Task):
+class ProcessCsv(luigi.Task):
     """
     """
     zip_file = luigi.Parameter()
@@ -120,7 +131,7 @@ class ProcessCSVs(luigi.Task):
         for csvfile in os.listdir(self.input().fn):
             if os.path.splitext(csvfile)[1] == '.csv':
                 csvfilepath = os.path.join(self.input().fn, csvfile)
-                yield LoadCleanedAIS(csvfilepath)
+                yield ValidMessages(csvfilepath)
             with self.output().open('w') as outfile:
                 outfile.write("{}".format(self.zip_file))
 
@@ -128,6 +139,30 @@ class ProcessCSVs(luigi.Task):
         filename = os.path.split(self.zip_file)[1]
         aname = os.path.splitext(filename)[0]
         return luigi.file.LocalTarget('tmp/process_csvs/{}'.format(aname))
+
+
+class WriteCsvToDb(luigi.Task):
+    """
+    """
+    zip_file = luigi.Parameter()
+    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
+
+    def requires(self):
+        return UnzippedArchive(self.zip_file, self.shell_script)
+
+    def run(self):
+        logger.debug("Writing csvs from {}".format(self.input().fn))
+        for csvfile in os.listdir(self.input().fn):
+            if os.path.splitext(csvfile)[1] == '.csv':
+                csvfilepath = os.path.join(self.input().fn, csvfile)
+                yield LoadCleanedAIS(csvfilepath)
+            with self.output().open('w') as outfile:
+                outfile.write("{}".format(self.zip_file))
+
+    def output(self):
+        filename = os.path.split(self.zip_file)[1]
+        aname = os.path.splitext(filename)[0]
+        return luigi.file.LocalTarget('tmp/write_csvs/{}'.format(aname))
 
 
 class GetCsvFile(luigi.ExternalTask):
@@ -164,6 +199,8 @@ class ValidMessages(luigi.Task):
 class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
 
     original_csvfile = luigi.Parameter()
+
+    resources = {'postgres': 1}
 
     null_values = (None,"")
     column_separator = ","
@@ -251,6 +288,8 @@ class LoadCleanedAIS(luigi.postgres.CopyToTable):
     """
 
     csvfile = luigi.Parameter()
+
+    resources = {'postgres': 1}
 
     null_values = (None,"")
     column_separator = ","
