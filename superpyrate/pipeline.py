@@ -52,12 +52,13 @@ class ProcessZipArchives(luigi.Task):
     """
     folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
     shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
-    with_db = luigi.BooleanParameter(default=True, significant=False)
+    with_db = luigi.BooleanParameter(significant=False)
 
     def requires(self):
         GetFolderOfArchives(self.folder_of_zips)
 
     def run(self):
+        logger.warn("Database flag is {}".format(self.with_db))
         for archive in os.listdir(self.folder_of_zips):
             if os.path.splitext(archive)[1] == '.zip':
                 archive_path = os.path.join(self.folder_of_zips, archive)
