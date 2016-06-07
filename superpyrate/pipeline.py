@@ -199,6 +199,8 @@ class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
 
     original_csvfile = luigi.Parameter()
 
+    resources = {'postgres': 1}
+
     null_values = (None,"")
     column_separator = ","
 
@@ -285,6 +287,8 @@ class LoadCleanedAIS(luigi.postgres.CopyToTable):
     """
 
     csvfile = luigi.Parameter()
+
+    resources = {'postgres': 1}
 
     null_values = (None,"")
     column_separator = ","
