@@ -237,10 +237,10 @@ class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
     null_values = (None,"")
     column_separator = ","
 
-    host = os.environ['host']
-    database = os.environ['database']
-    user = os.environ['user']
-    password = os.environ['password']
+    host = os.environ['DBHOSTNAME']
+    database = os.environ['DBNAME']
+    user = os.environ['DBUSER']
+    password = os.environ['DBUSERPASS']
     table = "ais_clean"
 
     cols = ['MMSI','Time','Message_ID','Navigational_status','SOG',
@@ -326,10 +326,10 @@ class LoadCleanedAIS(luigi.postgres.CopyToTable):
     null_values = (None,"")
     column_separator = ","
 
-    host = os.environ['host']
-    database = os.environ['database']
-    user = os.environ['user']
-    password = os.environ['password']
+    host = os.environ['DBHOSTNAME']
+    database = os.environ['DBNAME']
+    user = os.environ['DBUSER']
+    password = os.environ['DBUSERPASS']
     table = "ais_sources"
 
     def requires(self):
