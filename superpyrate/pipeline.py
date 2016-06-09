@@ -9,15 +9,13 @@ out of three sub-pipelines.
 Entry points:
  - ProcessZipArchives(folder_of_zips, shell_script, with_db)
 
-
-
 """
 import luigi
 from luigi import six, postgres
 from luigi.util import inherits
 from luigi.contrib.external_program import ExternalProgramTask
 
-from pyrate.algorithms.aisparser import readcsv, parse_raw_row, AIS_CSV_COLUMNS, validate_row
+from pyrate.algorithms.aisparser import AIS_CSV_COLUMNS, validate_row
 from pyrate.repositories.aisdb import AISdb
 from superpyrate.tasks import produce_valid_csv_file
 import csv
@@ -78,28 +76,30 @@ class ProcessZipArchives(luigi.Task):
     folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
     shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
                                    significant=False)
-    with_db = luigi.BooleanParameter(significant=False)
+    with_db = luigi.BoolParameter(significant=False)
 
     def requires(self):
         GetFolderOfArchives(self.folder_of_zips)
 
     def run(self):
+        archives = []
         logger.warn("Database flag is {}".format(self.with_db))
         for archive in os.listdir(self.folder_of_zips):
             if os.path.splitext(archive)[1] == '.zip':
-                archive_path = os.path.join(self.folder_of_zips, archive)
-                if self.with_db:
-                    yield WriteCsvToDb(archive_path, self.shell_script)
-                else:
-                    yield ProcessCsv(archive_path, self.shell_script)
+                archives.append(os.path.join(self.folder_of_zips, archive))
+        if self.with_db is True:
+            yield [WriteCsvToDb(arc, self.shell_script) for arc in archives]
+        else:
+            yield [ProcessCsv(arc, self.shell_script) for arc in archives]
         # with self.output().open('w') as outfile:
         #     outfile.writeline("{}".format(self.folder_of_zips))
 
     def output(self):
         logger.debug("Folder of zips: {}".format(self.folder_of_zips))
         out_folder_name = os.path.basename(self.folder_of_zips)
-        root_folder = get_working_folder(self.folder_of_zips)
+        root_folder = get_working_folder()
         return luigi.file.LocalTarget(os.path.join(root_folder, 'tmp', 'archives', out_folder_name))
+
 
 class UnzippedArchive(ExternalProgramTask):
     """Unzips the zipped archive into a folder of AIS csv format files the same
@@ -123,13 +123,10 @@ class UnzippedArchive(ExternalProgramTask):
 
     def program_args(self):
         # Removes the file extension to give a folder name as the output target
-        out_root_dir = os.path.splitext(self.input().fn)[0]
-        out_folder_name = os.path.basename(out_root_dir)
-        rootdir = get_working_folder()
-        output_folder = os.path.join(rootdir,'files', 'unzipped', out_folder_name)
+        output_folder = self.output().fn
         logger.info('Running {0}, with args {1}, & {2}'.format(self.shell_script,
                                                                self.input().fn,
-                                                               out_root_dir))
+                                                               output_folder))
         return [self.shell_script, self.input().fn, output_folder]
 
     def output(self):
@@ -151,13 +148,16 @@ class ProcessCsv(luigi.Task):
         return UnzippedArchive(self.zip_file, self.shell_script)
 
     def run(self):
+        list_of_csvpaths = []
         logger.debug("Processing csvs from {}".format(self.input().fn))
         for csvfile in os.listdir(self.input().fn):
             if os.path.splitext(csvfile)[1] == '.csv':
-                csvfilepath = os.path.join(self.input().fn, csvfile)
-                yield ValidMessages(csvfilepath)
-            with self.output().open('w') as outfile:
-                outfile.write("{}".format(self.zip_file))
+                list_of_csvpaths.append(os.path.join(self.input().fn, csvfile))
+
+        yield [ValidMessages(csvfilepath) for csvfilepath in list_of_csvpaths]
+
+        with self.output().open('w') as outfile:
+            outfile.write("\n".join(list_of_csvpaths))
 
     def output(self):
         filename = os.path.split(self.zip_file)[1]
@@ -177,13 +177,15 @@ class WriteCsvToDb(luigi.Task):
         return UnzippedArchive(self.zip_file, self.shell_script)
 
     def run(self):
+        list_of_csvpaths = []
         logger.debug("Writing csvs from {}".format(self.input().fn))
         for csvfile in os.listdir(self.input().fn):
             if os.path.splitext(csvfile)[1] == '.csv':
-                csvfilepath = os.path.join(self.input().fn, csvfile)
-                yield LoadCleanedAIS(csvfilepath)
-            with self.output().open('w') as outfile:
-                outfile.write("{}".format(self.zip_file))
+                list_of_csvpaths.append(os.path.join(self.input().fn, csvfile))
+        yield [LoadCleanedAIS(csvfilepath) for csvfilepath in list_of_csvpaths]
+
+        with self.output().open('w') as outfile:
+            outfile.write("\n".join(list_of_csvpaths))
 
     def output(self):
         filename = os.path.split(self.zip_file)[1]
@@ -230,7 +232,7 @@ class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
 
     original_csvfile = luigi.Parameter()
 
-    resources = {'postgres': 1}
+    # resources = {'postgres': 1}
 
     null_values = (None,"")
     column_separator = ","
@@ -319,7 +321,7 @@ class LoadCleanedAIS(luigi.postgres.CopyToTable):
 
     csvfile = luigi.Parameter()
 
-    resources = {'postgres': 1}
+    # resources = {'postgres': 1}
 
     null_values = (None,"")
     column_separator = ","
