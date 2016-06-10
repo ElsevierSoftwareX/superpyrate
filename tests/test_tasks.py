@@ -8,6 +8,24 @@ from pyrate.algorithms.aisparser import readcsv, parse_raw_row, \
                                         AIS_CSV_COLUMNS, \
                                         validate_row
 
+class TestUnicodeError:
+    """Given fault, bugridden, error prone files, test that ingest still happens
+    """
+    def test_unicode_error_in_csv(self, set_tmpdir_environment):
+        unicode_error_file = "tests/fixtures/unicode_error.csv"
+        expected_output = os.path.join(str(set_tmpdir_environment), 'expected_output.csv')
+        with open(unicode_error_file, 'r') as input_file:
+            with open(expected_output, 'w') as output_file:
+                produce_valid_csv_file(input_file, output_file)
+
+        expected = ""
+
+        with open(output_file, 'r') as actual_file:
+            assert actual_file.readline().rstrip('\n\r').split(',') == AIS_CSV_COLUMNS
+            assert actual_file.readline().rstrip('\n\r') == expected
+
+
+
 class TestGenerationOfValidCsv():
     """
     """
