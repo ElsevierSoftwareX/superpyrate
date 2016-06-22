@@ -11,18 +11,13 @@ Entry points:
 
 """
 import luigi
-from luigi import six, postgres
-from luigi.util import inherits
 from luigi.contrib.external_program import ExternalProgramTask
-
-from pyrate.algorithms.aisparser import AIS_CSV_COLUMNS, validate_row
-from pyrate.repositories.aisdb import AISdb
+from luigi.postgres import CopyToTable
+from luigi import six
 from superpyrate.tasks import produce_valid_csv_file
 import csv
-import datetime
 import psycopg2
 import logging
-import tempfile
 import os
 logger = logging.getLogger('luigi-interface')
 
@@ -215,9 +210,9 @@ class ValidMessages(luigi.Task):
 
     def run(self):
         logger.debug("Processing {}.  Output to: {}".format(self.input().fn, self.output().fn))
-        with self.input().open('r') as infile:
-            with self.output().open('w') as outfile:
-                produce_valid_csv_file(infile, outfile)
+        infile = self.input().fn
+        outfile = self.output().fn
+        produce_valid_csv_file(infile, outfile)
 
     def output(self):
         name = os.path.basename(self.input().fn)
@@ -228,7 +223,9 @@ class ValidMessages(luigi.Task):
         return luigi.file.LocalTarget(clean_file_out)
 
 
-class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
+class ValidMessagesToDatabase(CopyToTable):
+    """
+    """
 
     original_csvfile = luigi.Parameter()
 
@@ -314,7 +311,7 @@ class ValidMessagesToDatabase(luigi.postgres.CopyToTable):
         connection.commit()
         connection.close()
 
-class LoadCleanedAIS(luigi.postgres.CopyToTable):
+class LoadCleanedAIS(CopyToTable):
     """
     Execute ValidMessagesToDatabase and update ais_sources table with name of CSV processed
     """

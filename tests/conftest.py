@@ -17,3 +17,10 @@ def set_tmpdir_environment(tmpdir_factory):
     tmpdir = tmpdir_factory.mktemp('test_aiscsv')
     os.environ['TMPDIR'] = str(tmpdir)
     return tmpdir
+
+@pytest.fixture(scope='session')
+def set_env_vars():
+    os.environ['DBHOSTNAME'] = 'localhost'
+    database = os.environ['DBNAME'] = 'test_aisdb'
+    os.environ['DBUSER'] = 'postgres'
+    os.environ['DBUSERPASS'] = ''
