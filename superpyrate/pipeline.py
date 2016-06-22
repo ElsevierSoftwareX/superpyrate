@@ -15,6 +15,7 @@ from luigi.contrib.external_program import ExternalProgramTask
 from luigi.postgres import CopyToTable
 from luigi import six
 from superpyrate.tasks import produce_valid_csv_file
+from pyrate.repositories.aisdb import AISdb
 import csv
 import psycopg2
 import logging
@@ -306,7 +307,7 @@ class ValidMessagesToDatabase(CopyToTable):
 
         # mark as complete in same transaction
         self.output().touch(connection)
-
+()
         # commit and clean up
         connection.commit()
         connection.close()
@@ -349,3 +350,31 @@ class LoadCleanedAIS(CopyToTable):
         # commit and clean up
         connection.commit()
         connection.close()
+
+
+class MakeIndices(luigi.Task):
+    """Make the table indexes for ais_clean
+
+    After all the data has been ingested into the database, make the indexes
+    for the database
+    """
+
+    folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
+    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
+                                   significant=False)
+
+    def requires(self):
+        ProcessZipArchives(folder_of_zips, shell_script, with_db=True)
+
+    def run(self):
+        options = {}
+
+        options['host'] = os.environ['DBHOSTNAME']
+        option['db'] = os.environ['DBNAME']
+        options['user'] = os.environ['DBUSER']
+        options['pass'] = os.environ['DBUSERPASS']
+        table = ais_clean
+
+        db = AISdb(options)
+        with db:
+            db.clean.create_indices()
