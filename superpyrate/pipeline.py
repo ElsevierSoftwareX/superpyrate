@@ -13,7 +13,7 @@ Entry points:
 import luigi
 from luigi.contrib.external_program import ExternalProgramTask
 from luigi.postgres import CopyToTable
-
+from luigi import six
 from superpyrate.tasks import produce_valid_csv_file
 import csv
 import psycopg2
