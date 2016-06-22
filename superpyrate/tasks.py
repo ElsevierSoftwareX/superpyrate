@@ -82,13 +82,17 @@ def produce_valid_csv_file(inputf, outputf):
                         continue
                     else:
                         # validate parsed row
-                        validated_row = validate_row(converted_row)
                         try:
-                            LOGGER.debug("Attempting writing validated data to file.")
-                            writer.writerow(validated_row)
-                        except ValueError as ve:
-                            LOGGER.error("Error in writing validated row to csvfile: {}".format(ve))
-                            continue
+                            validated_row = validate_row(converted_row)
+                        except ValueError:
+                            LOGGER.error("Error in validating the convered row: {}".format(converted_row))
+                        else:
+                            try:
+                                LOGGER.debug("Attempting writing validated data to file.")
+                                writer.writerow(validated_row)
+                            except ValueError as ve:
+                                LOGGER.error("Error in writing validated row to csvfile: {}".format(ve))
+                                continue
                 else:
                     LOGGER.info("Illegal row, so not writing to file.")
 
