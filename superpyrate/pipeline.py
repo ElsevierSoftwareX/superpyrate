@@ -366,8 +366,10 @@ class MakeIndices(luigi.Task):
         ProcessZipArchives(self.folder_of_zips, self.shell_script, with_db=True)
 
     def run(self):
+        """Creates an option file from the environment variables and passes this
+        to the pyrate AISdb class to connect to the database and create the indices
+        """
         options = {}
-
         options['host'] = os.environ['DBHOSTNAME']
         options['db'] = os.environ['DBNAME']
         options['user'] = os.environ['DBUSER']
