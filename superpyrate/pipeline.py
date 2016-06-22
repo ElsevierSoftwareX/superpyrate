@@ -20,7 +20,7 @@ import csv
 import psycopg2
 import logging
 import os
-logger = logging.getLogger('luigi-interface')
+LOGGER = logging.getLogger('luigi-interface')
 
 
 def get_working_folder(folder_of_zips=None):
@@ -79,7 +79,7 @@ class ProcessZipArchives(luigi.Task):
 
     def run(self):
         archives = []
-        logger.warn("Database flag is {}".format(self.with_db))
+        LOGGER.warn("Database flag is {}".format(self.with_db))
         for archive in os.listdir(self.folder_of_zips):
             if os.path.splitext(archive)[1] == '.zip':
                 archives.append(os.path.join(self.folder_of_zips, archive))
@@ -91,7 +91,7 @@ class ProcessZipArchives(luigi.Task):
         #     outfile.writeline("{}".format(self.folder_of_zips))
 
     def output(self):
-        logger.debug("Folder of zips: {}".format(self.folder_of_zips))
+        LOGGER.debug("Folder of zips: {}".format(self.folder_of_zips))
         out_folder_name = os.path.basename(self.folder_of_zips)
         root_folder = get_working_folder()
         return luigi.file.LocalTarget(os.path.join(root_folder, 'tmp', 'archives', out_folder_name))
@@ -120,7 +120,7 @@ class UnzippedArchive(ExternalProgramTask):
     def program_args(self):
         # Removes the file extension to give a folder name as the output target
         output_folder = self.output().fn
-        logger.info('Running {0}, with args {1}, & {2}'.format(self.shell_script,
+        LOGGER.info('Running {0}, with args {1}, & {2}'.format(self.shell_script,
                                                                self.input().fn,
                                                                output_folder))
         return [self.shell_script, self.input().fn, output_folder]
@@ -130,7 +130,7 @@ class UnzippedArchive(ExternalProgramTask):
         _, out_folder_name = os.path.split(out_root_dir)
         rootdir = get_working_folder()
         output_folder = os.path.join(rootdir,'files', 'unzipped', out_folder_name)
-        # logger.debug("Unzipped {}".format(output_folder))
+        # LOGGER.debug("Unzipped {}".format(output_folder))
         return luigi.file.LocalTarget(output_folder)
 
 
@@ -145,7 +145,7 @@ class ProcessCsv(luigi.Task):
 
     def run(self):
         list_of_csvpaths = []
-        logger.debug("Processing csvs from {}".format(self.input().fn))
+        LOGGER.debug("Processing csvs from {}".format(self.input().fn))
         for csvfile in os.listdir(self.input().fn):
             if os.path.splitext(csvfile)[1] == '.csv':
                 list_of_csvpaths.append(os.path.join(self.input().fn, csvfile))
@@ -174,7 +174,7 @@ class WriteCsvToDb(luigi.Task):
 
     def run(self):
         list_of_csvpaths = []
-        logger.debug("Writing csvs from {}".format(self.input().fn))
+        LOGGER.debug("Writing csvs from {}".format(self.input().fn))
         for csvfile in os.listdir(self.input().fn):
             if os.path.splitext(csvfile)[1] == '.csv':
                 list_of_csvpaths.append(os.path.join(self.input().fn, csvfile))
@@ -210,7 +210,7 @@ class ValidMessages(luigi.Task):
         return GetCsvFile(self.csvfile)
 
     def run(self):
-        logger.debug("Processing {}.  Output to: {}".format(self.input().fn, self.output().fn))
+        LOGGER.debug("Processing {}.  Output to: {}".format(self.input().fn, self.output().fn))
         infile = self.input().fn
         outfile = self.output().fn
         produce_valid_csv_file(infile, outfile)
@@ -220,7 +220,7 @@ class ValidMessages(luigi.Task):
         rootdir = get_working_folder()
         path = os.path.join(rootdir, 'files','cleancsv', name)
         clean_file_out = os.path.join(path)
-        logger.info("Clean file saved to {}".format(clean_file_out))
+        LOGGER.info("Clean file saved to {}".format(clean_file_out))
         return luigi.file.LocalTarget(clean_file_out)
 
 
@@ -246,7 +246,7 @@ class ValidMessagesToDatabase(CopyToTable):
                'Destination','Vessel_Name',
                'ETA_month','ETA_day','ETA_hour','ETA_minute']
     columns = [x.lower() for x in cols]
-    # logger.debug("Columns: {}".format(columns))
+    # LOGGER.debug("Columns: {}".format(columns))
 
     def requires(self):
         return ValidMessages(self.original_csvfile)
@@ -259,7 +259,7 @@ class ValidMessagesToDatabase(CopyToTable):
             reader = csv.reader(csvfile)
             for row in reader:
                 yield row
-                # logger.debug(line)
+                # LOGGER.debug(line)
                 # yield [x for x in line.strip('\n').split(',') ]
 
     def copy(self, cursor, clean_file):
@@ -269,9 +269,9 @@ class ValidMessagesToDatabase(CopyToTable):
             column_names = [c[0] for c in self.columns]
         else:
             raise Exception('columns must consist of column strings or (column string, type string) tuples (was %r ...)' % (self.columns[0],))
-        logger.debug(self.columns)
+        LOGGER.debug(self.columns)
         sql = "COPY {} ({}) FROM STDIN WITH (FORMAT csv, HEADER true)".format(self.table, ",".join(self.columns), clean_file)
-        logger.debug("File: {}".format(clean_file))
+        LOGGER.debug("File: {}".format(clean_file))
         cursor.copy_expert(sql, clean_file)
 
     def run(self):
@@ -297,7 +297,7 @@ class ValidMessagesToDatabase(CopyToTable):
                 except psycopg2.ProgrammingError as e:
                     if e.pgcode == psycopg2.errorcodes.UNDEFINED_TABLE and attempt == 0:
                         # if first attempt fails with "relation not found", try creating table
-                        logger.info("Creating table %s", self.table)
+                        LOGGER.info("Creating table %s", self.table)
                         connection.reset()
                         self.create_table(connection)
                     else:
@@ -307,7 +307,6 @@ class ValidMessagesToDatabase(CopyToTable):
 
         # mark as complete in same transaction
         self.output().touch(connection)
-()
         # commit and clean up
         connection.commit()
         connection.close()
@@ -364,17 +363,24 @@ class MakeIndices(luigi.Task):
                                    significant=False)
 
     def requires(self):
-        ProcessZipArchives(folder_of_zips, shell_script, with_db=True)
+        ProcessZipArchives(self.folder_of_zips, self.shell_script, with_db=True)
 
     def run(self):
         options = {}
 
         options['host'] = os.environ['DBHOSTNAME']
-        option['db'] = os.environ['DBNAME']
+        options['db'] = os.environ['DBNAME']
         options['user'] = os.environ['DBUSER']
         options['pass'] = os.environ['DBUSERPASS']
-        table = ais_clean
+        table = 'ais_clean'
 
         db = AISdb(options)
         with db:
+            db.clean.drop_indices()
             db.clean.create_indices()
+
+    def output(self):
+        filename = 'create_database_indexes.txt'
+        rootdir = get_working_folder()
+        path = os.path.join(rootdir, 'tmp','database', filename)
+        return luigi.file.LocalTarget(path)
