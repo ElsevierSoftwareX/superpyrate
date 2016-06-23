@@ -12,7 +12,7 @@ Entry points:
 """
 import luigi
 from luigi.contrib.external_program import ExternalProgramTask
-from luigi.postgres import CopyToTable
+from luigi.postgres import CopyToTable, PostgresQuery
 from luigi import six
 from superpyrate.tasks import produce_valid_csv_file
 from pyrate.repositories.aisdb import AISdb
@@ -386,3 +386,22 @@ class MakeIndices(luigi.Task):
         rootdir = get_working_folder()
         path = os.path.join(rootdir, 'tmp','database', filename)
         return luigi.file.LocalTarget(path)
+
+
+class ClusterAisClean(PostgresQuery):
+    """Clusters the ais_clean table over the disk on the mmsi index
+    """
+
+    folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
+    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
+                                   significant=False)
+
+    host = os.environ['DBHOSTNAME']
+    database = os.environ['DBNAME']
+    user = os.environ['DBUSER']
+    password = os.environ['DBUSERPASS']
+    table = "ais_clean"
+    query = 'CLUSTER VERBOSE ais_clean USING idx_ais_clean_mmsi;'
+
+    def requires(self):
+        ProcessZipArchives(self.folder_of_zips, self.shell_script, with_db=True)
