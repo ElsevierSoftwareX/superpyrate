@@ -14,6 +14,7 @@ import luigi
 from luigi.contrib.external_program import ExternalProgramTask
 from luigi.postgres import CopyToTable, PostgresQuery
 from luigi import six
+from luigi.util import requires
 from superpyrate.tasks import produce_valid_csv_file
 from pyrate.repositories.aisdb import AISdb
 import csv
@@ -66,37 +67,6 @@ class GetFolderOfArchives(luigi.ExternalTask):
         return luigi.file.LocalTarget(self.folder_of_zips)
 
 
-class ProcessZipArchives(luigi.Task):
-    """
-    """
-    folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
-    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
-                                   significant=False)
-    with_db = luigi.BoolParameter(significant=False)
-
-    def requires(self):
-        GetFolderOfArchives(self.folder_of_zips)
-
-    def run(self):
-        archives = []
-        LOGGER.warn("Database flag is {}".format(self.with_db))
-        for archive in os.listdir(self.folder_of_zips):
-            if os.path.splitext(archive)[1] == '.zip':
-                archives.append(os.path.join(self.folder_of_zips, archive))
-        if self.with_db is True:
-            yield [WriteCsvToDb(arc, self.shell_script) for arc in archives]
-        else:
-            yield [ProcessCsv(arc, self.shell_script) for arc in archives]
-        # with self.output().open('w') as outfile:
-        #     outfile.writeline("{}".format(self.folder_of_zips))
-
-    def output(self):
-        LOGGER.debug("Folder of zips: {}".format(self.folder_of_zips))
-        out_folder_name = os.path.basename(self.folder_of_zips)
-        root_folder = get_working_folder()
-        return luigi.file.LocalTarget(os.path.join(root_folder, 'tmp', 'archives', out_folder_name))
-
-
 class UnzippedArchive(ExternalProgramTask):
     """Unzips the zipped archive into a folder of AIS csv format files the same
     name as the original file
@@ -111,7 +81,7 @@ class UnzippedArchive(ExternalProgramTask):
     Outputs the files into a folder of the same name as the zip file in a
     subdirectory called 'unzipped'
     """
-    zip_file = luigi.Parameter()
+    zip_file = luigi.Parameter(description='The file path of the archive to unzip')
     shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
 
     def requires(self):
@@ -160,34 +130,6 @@ class ProcessCsv(luigi.Task):
         name = os.path.splitext(filename)[0]
         rootdir = get_working_folder()
         path = os.path.join(rootdir, 'tmp','processcsv', name)
-        return luigi.file.LocalTarget(path)
-
-
-class WriteCsvToDb(luigi.Task):
-    """
-    """
-    zip_file = luigi.Parameter()
-    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
-
-    def requires(self):
-        return UnzippedArchive(self.zip_file, self.shell_script)
-
-    def run(self):
-        list_of_csvpaths = []
-        LOGGER.debug("Writing csvs from {}".format(self.input().fn))
-        for csvfile in os.listdir(self.input().fn):
-            if os.path.splitext(csvfile)[1] == '.csv':
-                list_of_csvpaths.append(os.path.join(self.input().fn, csvfile))
-        yield [LoadCleanedAIS(csvfilepath) for csvfilepath in list_of_csvpaths]
-
-        with self.output().open('w') as outfile:
-            outfile.write("\n".join(list_of_csvpaths))
-
-    def output(self):
-        filename = os.path.split(self.zip_file)[1]
-        name = os.path.splitext(filename)[0]
-        rootdir = get_working_folder()
-        path = os.path.join(rootdir, 'tmp','writecsv', name)
         return luigi.file.LocalTarget(path)
 
 
@@ -311,6 +253,7 @@ class ValidMessagesToDatabase(CopyToTable):
         connection.commit()
         connection.close()
 
+
 class LoadCleanedAIS(CopyToTable):
     """
     Execute ValidMessagesToDatabase and update ais_sources table with name of CSV processed
@@ -334,7 +277,13 @@ class LoadCleanedAIS(CopyToTable):
 
     def run(self):
         # Prepare source data to add to ais_sources
-        source_data = {'filename':self.csvfile,'ext':os.path.splitext(self.csvfile)[1],'invalid':0,'clean':0,'dirty':0,'source':0}
+        source_data = {'filename': self.csvfile,
+                       'ext': os.path.splitext(self.csvfile)[1],
+                       'invalid': 0,
+                       'clean': 0,
+                       'dirty': 0,
+                       'source': 0}
+
         columns = '(' + ','.join([c.lower() for c in source_data.keys()]) + ')'
 
         connection = self.output().connect()
@@ -350,58 +299,131 @@ class LoadCleanedAIS(CopyToTable):
         connection.commit()
         connection.close()
 
-
-class MakeIndices(luigi.Task):
-    """Make the table indexes for ais_clean
-
-    After all the data has been ingested into the database, make the indexes
-    for the database
+@requires(UnzippedArchive)
+class WriteCsvToDb(luigi.Task):
     """
+    """
+    def run(self):
+        list_of_csvpaths = []
+        LOGGER.debug("Writing csvs from {}".format(self.input().fn))
+        for csvfile in os.listdir(self.input().fn):
+            if os.path.splitext(csvfile)[1] == '.csv':
+                list_of_csvpaths.append(os.path.join(self.input().fn, csvfile))
+        yield [LoadCleanedAIS(csvfilepath) for csvfilepath in list_of_csvpaths]
 
-    folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
+        with self.output().open('w') as outfile:
+            outfile.write("\n".join(list_of_csvpaths))
+
+    def output(self):
+        filename = os.path.split(self.zip_file)[1]
+        name = os.path.splitext(filename)[0]
+        rootdir = get_working_folder()
+        path = os.path.join(rootdir, 'tmp','writecsv', name)
+        return luigi.file.LocalTarget(path)
+
+
+class ProcessZipArchives(luigi.Task):
+    """
+    """
+    folder_of_zips = luigi.Parameter(significant=True)
     shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
                                    significant=False)
+    with_db = luigi.BoolParameter(significant=False)
 
     def requires(self):
-        ProcessZipArchives(self.folder_of_zips, self.shell_script, with_db=True)
+        return GetFolderOfArchives(self.folder_of_zips)
 
     def run(self):
-        """Creates an option file from the environment variables and passes this
-        to the pyrate AISdb class to connect to the database and create the indices
+        archives = []
+        LOGGER.warn("Database flag is {}".format(self.with_db))
+        LOGGER.debug("ProcessZipArchives input is: {}".format(self.input().fn))
+        print(self.input().fn)
+        filesystem = self.input().fs
+        list_of_archives = [x for x in filesystem.listdir(self.input().fn)]
+        LOGGER.debug(list_of_archives)
+        for archive in list_of_archives:
+            if os.path.splitext(archive)[1] == '.zip':
+                archives.append(archive)
+        LOGGER.debug(archives)
+        if self.with_db is True:
+            yield [WriteCsvToDb(arc, self.shell_script) for arc in archives]
+        else:
+            yield [ProcessCsv(arc, self.shell_script) for arc in archives]
+        with self.output().open('w') as outfile:
+            outfile.write("{}".format(self.folder_of_zips))
+
+    def output(self):
+        LOGGER.debug("Folder of zips: {} with db {}".format(self.folder_of_zips,
+                                                            self.with_db))
+        out_folder_name = os.path.basename(self.folder_of_zips)
+        root_folder = get_working_folder()
+        return luigi.file.LocalTarget(os.path.join(root_folder,
+                                                   'tmp',
+                                                   'archives',
+                                                   out_folder_name))
+
+
+class MakeIndexByQuery(PostgresQuery):
+    """
+    """
+    query = luigi.Parameter()
+    table = luigi.Parameter(default='ais_clean')
+
+    host = os.environ['DBHOSTNAME']
+    database = os.environ['DBNAME']
+    user = os.environ['DBUSER']
+    password = os.environ['DBUSERPASS']
+
+@requires(ProcessZipArchives)
+class MakeAllIndices(luigi.Task):
+
+    table = luigi.Parameter(default='ais_clean')
+    # with_db = True
+
+    def run(self):
+        """
         """
         options = {}
         options['host'] = os.environ['DBHOSTNAME']
         options['db'] = os.environ['DBNAME']
         options['user'] = os.environ['DBUSER']
         options['pass'] = os.environ['DBUSERPASS']
-        table = 'ais_clean'
 
         db = AISdb(options)
         with db:
-            db.clean.drop_indices()
-            db.clean.create_indices()
+            if self.table == 'ais_clean':
+                indices = db.clean_db_spec['indices']
+            elif self.table == 'ais_dirty':
+                indices = db.dirty_db_spec['indices']
+            else:
+                raise NotImplemented('Table not implemented or incorrect')
+
+        queries = []
+        for idx, cols in indices:
+            idxn = self.table.lower() + "_" + idx
+            queries.append("CREATE INDEX IF NOT EXISTS \""+ idxn +"\" ON \""+ self.table +"\" USING btree ("+ ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
+
+        yield [MakeIndexByQuery(query, self.table) for query in queries]
+
+        with self.output().open('w') as outfile:
+            outfile.write(self.table)
 
     def output(self):
-        filename = 'create_database_indexes.txt'
+        filename = 'create_{}_indexes.txt'.format(self.table)
         rootdir = get_working_folder()
         path = os.path.join(rootdir, 'tmp','database', filename)
         return luigi.file.LocalTarget(path)
 
-
+@requires(MakeAllIndices)
 class ClusterAisClean(PostgresQuery):
     """Clusters the ais_clean table over the disk on the mmsi index
     """
 
-    folder_of_zips = luigi.Parameter(description='The folder containing the zipped archives of AIS csv files')
-    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
-                                   significant=False)
+    # with_db = True
 
     host = os.environ['DBHOSTNAME']
     database = os.environ['DBNAME']
     user = os.environ['DBUSER']
     password = os.environ['DBUSERPASS']
     table = "ais_clean"
-    query = 'CLUSTER VERBOSE ais_clean USING idx_ais_clean_mmsi;'
-
-    def requires(self):
-        ProcessZipArchives(self.folder_of_zips, self.shell_script, with_db=True)
+    query = 'CLUSTER VERBOSE ais_clean USING ais_clean_mmsi_idx;'
