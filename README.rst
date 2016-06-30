@@ -14,4 +14,7 @@ Description
 Superpyrate ingests AIS data in parallel to a postgres database, and provides
 a framework for running algorithms and tasks on this AIS data.
 
-Superpyrate rests heavily on [luigi](http://luigi.readthedocs.io/en/stable/).
+Superpyrate rests heavily on luigi_, a pipeline and dataflow manager which
+uses large directed acyclic graphs model and manage the flows of data between tasks.
+
+.. _luigi: http://luigi.readthedocs.io/en/stable/
