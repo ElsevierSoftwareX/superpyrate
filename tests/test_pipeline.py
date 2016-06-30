@@ -2,7 +2,6 @@
 # -*- coding: utf-8 -*-
 """ Tests the three tasks in the prototype pipeline
 """
-
 import pytest
 from superpyrate import pipeline
 from luigi import mock
@@ -42,5 +41,13 @@ class TestCopyFrom():
     def test_successful_ingest_filename_ais_source(self, set_env_vars):
         """ Once successfully ingested, the filename of the file should populate
         the ais_sources table, along with counts of clean, dirty and invalid rows
+        """
+        pass
+
+class TestCreateIndices():
+    """Test that indices are generated in the test database
+    """
+    def test_create_indices(self, set_env_vars):
+        """
         """
         pass
