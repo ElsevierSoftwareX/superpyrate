@@ -1,14 +1,47 @@
-""" Runs an integrated pipeline from raw zip file to database tables.  This mega-pipeline is constructed
-out of three sub-pipelines.
+""" Runs an integrated pipeline from raw zip file to database tables.
+
+This mega-pipeline is constructed out of three smaller pipelines and now brings
+together tasks which:
 
 1. Unzip individual AIS archives and output the csv files
-2. Validate each of the csv files, processing using a derived version of the pyrate code,
-   outputting vaidated csv files
-3. Using the postgres `copy` command, ingest the data directly into the database
 
-Entry points:
- - ProcessZipArchives(folder_of_zips, shell_script, with_db)
+2. Validate each of the csv files, processing using a derived version
+of the pyrate code, outputting vaidated csv files
 
+3. Using the postgres `copy` command, ingest the validated data directly into
+the database
+
+Entry points
+============
+
+It is not necessary to run the entire pipeline, although there is little harm
+in doing so, as luigi manages the process so that individual tasks are
+idempotent.  This means that a task only runs if required.  Luigi only runs the
+tasks necessary to produce the files which are required for the specified entry
+point.
+
+For example, to run the entire pipeline, producing a full ingested and clustered
+database, run::
+
+    luigi --module opepr.message ClusterAisClean
+          --workers 12
+
+If only the validated csv files are required, run::
+
+    luigi --module opepr.message ProcessZipArchives
+          --workers 12
+          --folder-of-zips /folder/of/zips/
+          --shell-script /path/to/unzip/shell/script
+          --with_db
+
+Environment Variables
+=====================
+
+LUIGIWORK - the working folder for the files
+DBHOSTNAME - hostname for the database e.g. localhost
+DBNAME - the name of the database
+DBUSER - the name of the user with access to the database
+DBUSERPASS - the passwork of the database user
 """
 import luigi
 from luigi.contrib.external_program import ExternalProgramTask
@@ -22,6 +55,18 @@ import psycopg2
 import logging
 import os
 LOGGER = logging.getLogger('luigi-interface')
+
+def get_environment_variable(name):
+    """Tries to access an environment variable, and handles the error by replacing
+    the value with a dummy value (an empty string)
+    """
+    assert isinstance(name, str)
+    try:
+        envvar = os.environ[name]
+    except KeyError:
+        envvar = ''
+        LOGGER.error("{} environment variable not found, using default".format(name))
+    return envvar
 
 
 def get_working_folder(folder_of_zips=None):
@@ -38,7 +83,7 @@ def get_working_folder(folder_of_zips=None):
         The path of the working folder.  This is either set by the environment
         variable LUIGIWORK, or if empty is computed from the arguments
     """
-    environment_variable = os.environ['LUIGIWORK']
+    environment_variable = get_environment_variable('LUIGIWORK')
     if environment_variable:
         working_folder = environment_variable
     else:
@@ -177,10 +222,10 @@ class ValidMessagesToDatabase(CopyToTable):
     null_values = (None,"")
     column_separator = ","
 
-    host = os.environ['DBHOSTNAME']
-    database = os.environ['DBNAME']
-    user = os.environ['DBUSER']
-    password = os.environ['DBUSERPASS']
+    host = get_environment_variable('DBHOSTNAME')
+    database = get_environment_variable('DBNAME')
+    user = get_environment_variable('DBUSER')
+    password = get_environment_variable('DBUSERPASS')
     table = "ais_clean"
 
     cols = ['MMSI','Time','Message_ID','Navigational_status','SOG',
@@ -266,10 +311,10 @@ class LoadCleanedAIS(CopyToTable):
     null_values = (None,"")
     column_separator = ","
 
-    host = os.environ['DBHOSTNAME']
-    database = os.environ['DBNAME']
-    user = os.environ['DBUSER']
-    password = os.environ['DBUSERPASS']
+    host = get_environment_variable('DBHOSTNAME')
+    database = get_environment_variable('DBNAME')
+    user = get_environment_variable('DBUSER')
+    password = get_environment_variable('DBUSERPASS')
     table = "ais_sources"
 
     def requires(self):
@@ -369,10 +414,10 @@ class MakeIndexByQuery(PostgresQuery):
     query = luigi.Parameter()
     table = luigi.Parameter(default='ais_clean')
 
-    host = os.environ['DBHOSTNAME']
-    database = os.environ['DBNAME']
-    user = os.environ['DBUSER']
-    password = os.environ['DBUSERPASS']
+    host = get_environment_variable('DBHOSTNAME')
+    database = get_environment_variable('DBNAME')
+    user = get_environment_variable('DBUSER')
+    password = get_environment_variable('DBUSERPASS')
 
 @requires(ProcessZipArchives)
 class MakeAllIndices(luigi.Task):
@@ -384,10 +429,10 @@ class MakeAllIndices(luigi.Task):
         """
         """
         options = {}
-        options['host'] = os.environ['DBHOSTNAME']
-        options['db'] = os.environ['DBNAME']
-        options['user'] = os.environ['DBUSER']
-        options['pass'] = os.environ['DBUSERPASS']
+        options['host'] = get_environment_variable('DBHOSTNAME')
+        options['db'] = get_environment_variable('DBNAME')
+        options['user'] = get_environment_variable('DBUSER')
+        options['pass'] = get_environment_variable('DBUSERPASS')
 
         db = AISdb(options)
         with db:
@@ -401,7 +446,10 @@ class MakeAllIndices(luigi.Task):
         queries = []
         for idx, cols in indices:
             idxn = self.table.lower() + "_" + idx
-            queries.append("CREATE INDEX IF NOT EXISTS \""+ idxn +"\" ON \""+ self.table +"\" USING btree ("+ ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
+            queries.append("SET LOCAL maintenance_work_mem = 28GB; \
+                            CREATE INDEX IF NOT EXISTS \"" +
+                            idxn +"\" ON \""+ self.table + "\" USING btree (" +
+                            ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
 
         yield [MakeIndexByQuery(query, self.table) for query in queries]
 
@@ -414,6 +462,7 @@ class MakeAllIndices(luigi.Task):
         path = os.path.join(rootdir, 'tmp','database', filename)
         return luigi.file.LocalTarget(path)
 
+
 @requires(MakeAllIndices)
 class ClusterAisClean(PostgresQuery):
     """Clusters the ais_clean table over the disk on the mmsi index
@@ -421,9 +470,9 @@ class ClusterAisClean(PostgresQuery):
 
     # with_db = True
 
-    host = os.environ['DBHOSTNAME']
-    database = os.environ['DBNAME']
-    user = os.environ['DBUSER']
-    password = os.environ['DBUSERPASS']
+    host = get_environment_variable('DBHOSTNAME')
+    database = get_environment_variable('DBNAME')
+    user = get_environment_variable('DBUSER')
+    password = get_environment_variable('DBUSERPASS')
     table = "ais_clean"
     query = 'CLUSTER VERBOSE ais_clean USING ais_clean_mmsi_idx;'
