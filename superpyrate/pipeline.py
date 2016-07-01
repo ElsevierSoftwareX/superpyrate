@@ -446,8 +446,7 @@ class MakeAllIndices(luigi.Task):
         queries = []
         for idx, cols in indices:
             idxn = self.table.lower() + "_" + idx
-            queries.append("SET LOCAL maintenance_work_mem = 28GB; \
-                            CREATE INDEX IF NOT EXISTS \"" +
+            queries.append("CREATE INDEX IF NOT EXISTS \"" +
                             idxn +"\" ON \""+ self.table + "\" USING btree (" +
                             ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
 
