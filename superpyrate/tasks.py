@@ -10,6 +10,7 @@ import logging
 from fuzzywuzzy import process as fuzz_proc
 
 LOGGER = logging.getLogger('luigi-interface')
+LOGGER.setLevel(logging.INFO)
 
 FORCED_COL_MAP = {'MMSI': 'MMSI',
                   'Time': 'Time',
@@ -213,7 +214,7 @@ def readcsv(fp, forced_col_map=None, columns=None):
             LOGGER.debug("Legal row found: {}".format(rowsubset))
             yield rowsubset
         else:
-            LOGGER.info("""Expected column length doesn't match row in file: {}.
+            LOGGER.debug("""Expected column length doesn't match row in file: {}.
                         Row is {}, column is {}""".format(fp.name, len(row), len(cols)))
             yield rowsubset
 

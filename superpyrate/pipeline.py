@@ -55,6 +55,7 @@ import psycopg2
 import logging
 import os
 LOGGER = logging.getLogger('luigi-interface')
+LOGGER.setLevel(logging.INFO)
 
 def get_environment_variable(name):
     """Tries to access an environment variable, and handles the error by replacing
