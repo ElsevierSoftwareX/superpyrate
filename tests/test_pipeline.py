@@ -3,12 +3,27 @@
 """ Tests the three tasks in the prototype pipeline
 """
 import pytest
-from superpyrate import pipeline
-from luigi import mock
+from superpyrate.pipeline import ClusterAisClean
+from conftest import set_env_vars, setup_clean_db
+import luigi
+
 
 __author__ = "Will Usher"
 __copyright__ = "Will Usher"
 __license__ = "mit"
+
+class TestWholePipeline():
+    """
+    """
+    def test_whole_pipeline_runs(self, setup_clean_db, set_env_vars):
+        """
+        """
+        folder_of_zips = 'tests/fixtures/testais/'
+        shell_script = './unzip.csvs.sh'
+        with_db = True
+        task = ClusterAisClean(folder_of_zips)
+        luigi.build([task], local_scheduler=True)
+        assert 0
 
 class TestFileNames():
     """
@@ -19,10 +34,6 @@ class TestFileNames():
         pipeline doesn't fail due to an unpleasantly named file.
         """
         pass
-
-
-
-
 
 class TestCopyFrom():
     """ Test successful copy of data from validated csv file to postgres database
