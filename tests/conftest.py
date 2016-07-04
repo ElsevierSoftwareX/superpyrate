@@ -41,6 +41,7 @@ def setup_clean_db(tmpdir):
     with db:
         db.truncate()
         db.clean.create()
+        db.clean.drop_indices()
 
     tempfilepath = tmpdir.mkdir("working_folder")
     os.environ['LUIGIWORK'] = str(tempfilepath)

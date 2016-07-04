@@ -18,10 +18,9 @@ class TestWholePipeline():
     def test_whole_pipeline_runs(self, setup_clean_db, set_env_vars):
         """
         """
-        folder_of_zips = 'tests/fixtures/testais/'
-        shell_script = './unzip.csvs.sh'
-        with_db = True
-        task = ClusterAisClean(folder_of_zips)
+        task = ClusterAisClean(folder_of_zips='tests/fixtures/testais/',
+                               shell_script='/usr/local/bin',
+                               with_db=True)
         luigi.build([task], local_scheduler=True)
         assert 0
 
