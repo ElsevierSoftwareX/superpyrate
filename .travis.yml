@@ -9,6 +9,7 @@ env:
     - DISTRIB="conda" PYTHON_VERSION="3.4" COVERAGE="true"
     - DISTRIB="conda" PYTHON_VERSION="3.5" COVERAGE="false"
 addons:
+  postgresql: "9.4"
   apt:
     packages:
       - git

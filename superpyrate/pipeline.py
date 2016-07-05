@@ -474,7 +474,7 @@ class MakeAllIndices(luigi.Task):
         queries = []
         for idx, cols in indices:
             idxn = self.table.lower() + "_" + idx
-            queries.append("CREATE INDEX IF NOT EXISTS \"" +
+            queries.append("CREATE INDEX \"" +
                             idxn +"\" ON \""+ self.table + "\" USING btree (" +
                             ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
 
