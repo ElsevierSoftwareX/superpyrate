@@ -21,7 +21,7 @@ before_script:
   - git config --global user.email "w.usher@ucl.ac.uk"
   - git config --global user.name "Will Usher"
   - psql -U postgres -c "CREATE EXTENSION postgis"
-  - psql -c 'CREATE DATAGASE test_aisdb;' -U postgres
+  - psql -c 'CREATE DATABASE test_aisdb;' -U postgres
   - psql -U postgres -c "CREATE USER test_ais WITH PASSWORD 'test_ais' SUPERUSER;"
   - psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE test_aisdb TO test_ais;"
 script:
