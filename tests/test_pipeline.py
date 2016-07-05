@@ -4,7 +4,7 @@
 """
 import pytest
 from superpyrate.pipeline import ClusterAisClean
-from conftest import set_env_vars, setup_clean_db
+from conftest import set_env_vars, setup_clean_db, setup_working_folder
 import luigi
 
 
@@ -15,7 +15,9 @@ __license__ = "mit"
 class TestWholePipeline():
     """
     """
-    def test_whole_pipeline_runs(self, setup_clean_db, set_env_vars):
+    def test_whole_pipeline_runs(self, setup_clean_db,
+                                 set_env_vars,
+                                 setup_working_folder):
         """
         """
         task = ClusterAisClean(folder_of_zips='tests/fixtures/testais/',

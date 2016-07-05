@@ -8,6 +8,8 @@
     https://pytest.org/latest/plugins.html
 """
 from __future__ import print_function, absolute_import, division
+from superpyrate.db_setup import main as db_setup
+from superpyrate.db_setup import make_options
 
 import pytest
 import os
@@ -30,18 +32,22 @@ def set_env_vars():
 
 
 @pytest.fixture(scope='function')
-def setup_clean_db(tmpdir):
-    options = {}
-    options['host'] = get_environment_variable('DBHOSTNAME')
-    options['db'] = get_environment_variable('DBNAME')
-    options['user'] = get_environment_variable('DBUSER')
-    options['pass'] = get_environment_variable('DBUSERPASS')
-
-    db = AISdb(options)
-    with db:
-        db.create()
-        db.truncate()
-        db.clean.drop_indices()
-
+def setup_working_folder(tmpdir):
     tempfilepath = tmpdir.mkdir("working_folder")
     os.environ['LUIGIWORK'] = str(tempfilepath)
+
+
+@pytest.fixture(scope='function')
+def setup_clean_db(request):
+    """Sets up and tearsdown the database for tests
+    """
+    db_setup()
+    def fin():
+        options = make_options()
+        sql = "drop schema public cascade; create schema public;"
+        db = AISdb(options)
+        with db:
+            with db.conn.cursor() as cur:
+                cur.execute(sql)
+            db.conn.commit()
+    request.addfinalizer(fin)
