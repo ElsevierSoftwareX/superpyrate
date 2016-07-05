@@ -163,7 +163,7 @@ class UnzippedArchive(ExternalProgramTask):
     def program_args(self):
         # Removes the file extension to give a folder name as the output target
         output_folder = self.output().fn
-        LOGGER.info('Unzipping {1} to {2}'.format(self.input().fn,
+        LOGGER.info('Unzipping {0} to {1}'.format(self.input().fn,
                                                   output_folder))
         return ['7za', 'e' , self.input().fn, '-o{}'.format(output_folder), '-y']
 
