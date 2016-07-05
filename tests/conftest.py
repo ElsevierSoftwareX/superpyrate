@@ -39,8 +39,8 @@ def setup_clean_db(tmpdir):
 
     db = AISdb(options)
     with db:
+        db.create()
         db.truncate()
-        db.clean.create()
         db.clean.drop_indices()
 
     tempfilepath = tmpdir.mkdir("working_folder")
