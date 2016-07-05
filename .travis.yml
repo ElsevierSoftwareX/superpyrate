@@ -13,6 +13,7 @@ addons:
     packages:
       - git
       - python-pip
+      - p7zip-full
 install:
   - source tests/travis_install.sh
   - pip install -r requirements.txt
