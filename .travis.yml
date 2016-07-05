@@ -9,20 +9,22 @@ env:
     - DISTRIB="conda" PYTHON_VERSION="3.4" COVERAGE="true"
     - DISTRIB="conda" PYTHON_VERSION="3.5" COVERAGE="false"
 addons:
+  postgresql: "9.4"
   apt:
     packages:
       - git
       - python-pip
+      - p7zip-full
 install:
   - source tests/travis_install.sh
   - pip install -r requirements.txt
 before_script:
   - git config --global user.email "w.usher@ucl.ac.uk"
   - git config --global user.name "Will Usher"
-  - psql -U postgres -c "create extension postgis"
-  - psql -c 'create database test_aisdb;' -U postgres
+  - psql -U postgres -c "CREATE EXTENSION postgis"
+  - psql -c 'CREATE DATABASE test_aisdb;' -U postgres
   - psql -U postgres -c "CREATE USER test_ais WITH PASSWORD 'test_ais' SUPERUSER;"
-  - psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE test_aisdb to test_ais;"
+  - psql -U postgres -c "GRANT ALL PRIVILEGES ON DATABASE test_aisdb TO test_ais;"
 script:
   - python setup.py test
 after_success:
