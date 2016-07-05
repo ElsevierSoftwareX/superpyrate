@@ -19,10 +19,9 @@ class TestWholePipeline():
         """
         """
         task = ClusterAisClean(folder_of_zips='tests/fixtures/testais/',
-                               shell_script='/usr/local/bin',
                                with_db=True)
-        luigi.build([task], local_scheduler=True)
-        assert 0
+        assert luigi.build([task], local_scheduler=True)
+
 
 class TestFileNames():
     """

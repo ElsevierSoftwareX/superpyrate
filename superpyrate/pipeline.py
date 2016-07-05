@@ -156,7 +156,6 @@ class UnzippedArchive(ExternalProgramTask):
     subdirectory called 'unzipped'
     """
     zip_file = luigi.Parameter(description='The file path of the archive to unzip')
-    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
 
     def requires(self):
         return GetZipArchive(self.zip_file)
@@ -164,10 +163,9 @@ class UnzippedArchive(ExternalProgramTask):
     def program_args(self):
         # Removes the file extension to give a folder name as the output target
         output_folder = self.output().fn
-        LOGGER.info('Running {0}, with args {1}, & {2}'.format(self.shell_script,
-                                                               self.input().fn,
-                                                               output_folder))
-        return [self.shell_script, self.input().fn, output_folder]
+        LOGGER.info('Unzipping {1} to {2}'.format(self.input().fn,
+                                                  output_folder))
+        return ['7za', 'e' , self.input().fn, '-o{}'.format(output_folder), '-y']
 
     def output(self):
         out_root_dir = os.path.splitext(self.input().fn)[0]
@@ -182,10 +180,9 @@ class ProcessCsv(luigi.Task):
     """
     """
     zip_file = luigi.Parameter()
-    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh', significant=False)
 
     def requires(self):
-        return UnzippedArchive(self.zip_file, self.shell_script)
+        return UnzippedArchive(self.zip_file)
 
     def run(self):
         list_of_csvpaths = []
@@ -400,8 +397,6 @@ class ProcessZipArchives(luigi.Task):
     """
     """
     folder_of_zips = luigi.Parameter(significant=True)
-    shell_script = luigi.Parameter(default='../superpyrate/unzip_csvs.sh',
-                                   significant=False)
     with_db = luigi.BoolParameter(significant=False)
 
     def requires(self):
@@ -424,9 +419,9 @@ class ProcessZipArchives(luigi.Task):
                 archives.append(archive)
         LOGGER.debug(archives)
         if self.with_db is True:
-            yield [WriteCsvToDb(arc, self.shell_script) for arc in archives]
+            yield [WriteCsvToDb(arc) for arc in archives]
         else:
-            yield [ProcessCsv(arc, self.shell_script) for arc in archives]
+            yield [ProcessCsv(arc) for arc in archives]
         with self.output().open('w') as outfile:
             outfile.write("{}".format(self.folder_of_zips))
 
