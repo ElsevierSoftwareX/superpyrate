@@ -32,6 +32,16 @@ FORCED_COL_MAP = {'MMSI': 'MMSI',
 
 
 def learn_columns(read_cols, required_cols, csv_or_xml='csv'):
+    """Tries to match the read columns with the list given
+
+    Arguments
+    =========
+    read_cols : dict
+        The columns read from the csv file
+    required_cols : list
+        A list of the columns required from the csv file
+    csv_or_xml : str, default='csv'
+    """
     if csv_or_xml == 'csv':
         matched_cols = {}
         for col in required_cols:
@@ -43,6 +53,7 @@ def learn_columns(read_cols, required_cols, csv_or_xml='csv'):
 
 def produce_valid_csv_file(inputf, outputf):
     """
+
     Arguments
     ---------
     input_file :
@@ -98,6 +109,8 @@ def produce_valid_csv_file(inputf, outputf):
                     LOGGER.info("Illegal row, so not writing to file.")
 
 def unfussy_reader(csv_reader):
+    """
+    """
     while True:
         try:
             yield next(csv_reader)
@@ -113,7 +126,7 @@ def unfussy_reader(csv_reader):
             continue
 
 def readcsv(fp, forced_col_map=None, columns=None):
-    """ Yields a dctionary of the subset of columns required
+    """Yields a dctionary of the subset of columns required
 
     Reads each line in CSV file, checks if all columns are available,
     and returns a dictionary of the subset of columns required
