@@ -1,4 +1,4 @@
-"""
+"""Contains the code for validating AIS messages
 """
 import csv
 import sys

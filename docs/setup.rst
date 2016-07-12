@@ -4,7 +4,57 @@
 Setup
 =======
 
-Requirements
+Configuration
+=============
+Setup and initialised a remote luigi server to host the scheduler.
+In the UCL shipping group, this is currently hosted on the 'linux box'
+
+Logging
+-------
+The log output of the superpyrate pipeline is extremely verbose when set to
+DEBUG level.  For production, it is strongly recommended that the level is set
+to INFO only to avoid the generation of GB-scale log files.
+
+This is easily done using a python logging configuration file, and referencing
+the path to the logging config in the luigi configuration file.
+
+Luigi
+-----
+The luigi configuration file can be placed anywhere and is specified through the
+environment variable `LUIGI_CONFIG_PATH`.
+
+More information about the configuration file can be found in the luigi
+documentation_.
+
+.. _documentation: http://luigi.readthedocs.io/en/stable/configuration.html
+
+
+Postgres
+--------
+The postgres configuration file `postgresql.conf` resides in the data folder
+specified by the environment variable `$PGDATA`.
+
+This file contains a number of server specific settings which dramatically affect
+the performance of the database, particular for memory and processor intensive
+operations such as index generation, clustering and bulk copying of data.
+
+Various postgres configuration files are stored in a github repository_.
+
+.. _repository: https://gist.github.com/willu47/d4b0f246e4cb4f079b4e415528fbcdd2
+
+
+Installation
+------------
+
+Using Legion, loading postgres is as simple as loading the required modules:
+
+If you have `legion-scripts`_ installed, then you can just run the load_postgres.sh
+script.
+
+: _legion-scripts: https://github.com/UCL-ShippingGroup/legion_scripts.git
+
+Installing from source
+----------------------
 
 First, install postgres::
 
@@ -116,7 +166,7 @@ git.  You can follow the instructions here https://help.github.com/articles/set-
     pip install -r requirements.txt
     python setup.py develop
 
-Add a configuration file for luigi
+Add a configuration file for py:mod:`luigi`
 
     [Pipeline_Valid_Messages]
     source_path=/path/to/source/ais/files

@@ -11,6 +11,46 @@ of the pyrate code, outputting vaidated csv files
 3. Using the postgres `copy` command, ingest the validated data directly into
 the database
 
+.. graphviz::
+
+    digraph pipeline {
+        GetZipArchive [label="GetZipArchive", href="superpyrate.html#superpyrate.pipeline.GetZipArchive", target="_top", shape=box];
+        GetFolderOfArchives [label="GetFolderOfArchives", href="superpyrate.html#superpyrate.pipeline.GetFolderOfArchives", target="_top", shape=box];
+        UnzippedArchive [label="UnzippedArchive", href="superpyrate.html#superpyrate.pipeline.UnzippedArchive", target="_top", shape=diamond];
+        UnzippedArchive -> GetZipArchive;
+        ProcessCsv [label="ProcessCsv", href="superpyrate.html#superpyrate.pipeline.ProcessCsv", target="_top", shape=diamond, colorscheme=dark26, color=4, style=filled];
+        ProcessCsv -> UnzippedArchive;
+        ProcessCsv -> ValidMessages [arrowhead=dot,arrowtail=dot]
+        GetCsvFile [label="GetCsvFile", href="superpyrate.html#superpyrate.pipeline.GetCsvFile", target="_top", shape=box];
+        ValidMessages [label="ValidMessages", href="", target="_top", shape=diamond];
+        ValidMessages -> GetCsvFile;
+        ValidMessages -> fs [arrowhead=odot];
+        ValidMessagesToDatabase [label="ValidMessagesToDatabase", href="superpyrate.html#superpyrate.pipeline.ValidMessagesToDatabase", target="_top", shape=diamond];
+        ValidMessagesToDatabase -> ValidMessages;
+        ValidMessagesToDatabase -> db [arrowhead=odot];
+        LoadCleanedAIS [label="LoadCleanedAIS", href="superpyrate.html#superpyrate.pipeline.LoadCleanedAIS", target="_top", shape=diamond];
+        LoadCleanedAIS -> ValidMessagesToDatabase;
+        LoadCleanedAIS -> db [arrowhead=odot];
+        WriteCsvToDb [label="WriteCsvToDb", href="superpyrate.html#superpyrate.pipeline.WriteCsvToDb", target="_top", shape=diamond, colorscheme=dark26, color=4, style=filled];
+        WriteCsvToDb -> UnzippedArchive;
+        WriteCsvToDb -> LoadCleanedAIS [arrowhead=dot,arrowtail=dot];
+        ProcessZipArchives [label="ProcessZipArchives", href="superpyrate.html#superpyrate.pipeline.ProcessZipArchives", target="_top", shape=diamond, colorscheme=dark26, color=3, style=filled];
+        ProcessZipArchives -> GetFolderOfArchives;
+        ProcessZipArchives -> ProcessCsv [arrowhead=dot, arrowtail=dot];
+        ProcessZipArchives -> WriteCsvToDb [arrowhead=dot, arrowtail=dot];
+        MakeIndexByQuery [label="MakeIndexByQuery", href="superpyrate.html#superpyrate.pipeline.MakeIndexByQuery", target="_top", shape=diamond];
+        MakeIndexByQuery -> db [arrowhead=odot];
+        MakeAllIndices [label="MakeAllIndices", href="superpyrate.html#superpyrate.pipeline.MakeAllIndices", target="_top", shape=diamond, colorscheme=dark26, color=2, style=filled];
+        MakeAllIndices -> MakeIndexByQuery [arrowhead=dot, arrowtail=dot];
+        MakeAllIndices -> ProcessZipArchives;
+        ClusterAisClean [label="ClusterAisClean", href="superpyrate.html#superpyrate.pipeline.ClusterAisClean", target="_top", shape=diamond, colorscheme=dark26, color=1, style=filled];
+        ClusterAisClean -> MakeAllIndices;
+        ClusterAisClean -> db [arrowhead=odot];
+
+        db [label="database", shape=cylinder];
+        fs [label="filesystem", shape=folder];
+    }
+
 Entry points
 ============
 
@@ -446,6 +486,7 @@ class MakeIndexByQuery(PostgresQuery):
     database = get_environment_variable('DBNAME')
     user = get_environment_variable('DBUSER')
     password = get_environment_variable('DBUSERPASS')
+
 
 @requires(ProcessZipArchives)
 class MakeAllIndices(luigi.Task):
