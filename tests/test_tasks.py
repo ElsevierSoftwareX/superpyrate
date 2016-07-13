@@ -1,9 +1,12 @@
 from superpyrate.tasks import produce_valid_csv_file
+from superpyrate.pipeline import ClusterAisClean
+from superpyrate.task_countfiles import CountLines
+from conftest import set_env_vars, setup_clean_db, setup_working_folder
 import os
 import tempfile
 import csv
 from pytest import fixture
-
+import luigi
 from pyrate.algorithms.aisparser import readcsv, parse_raw_row, \
                                         AIS_CSV_COLUMNS, \
                                         validate_row
@@ -17,6 +20,7 @@ logging.basicConfig(filename='tests.log',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
 class TestUnicodeError:
+
     """Given fault, bugridden, error prone files, test that ingest still happens
     """
 
@@ -50,6 +54,41 @@ class TestUnicodeError:
             actual_file.readline()
             for actual, expected in zip(actual_file, expected):
                 assert actual.rstrip('\n\r') == ",".join(expected)
+
+
+class TestCountFiles():
+    """
+    """
+    def test_countlines(self, setup_clean_db, set_env_vars, setup_working_folder):
+        """
+        """
+        working_folder = os.environ['LUIGIWORK']
+        # Setup existing workflow
+        luigi.build([ClusterAisClean('tests/fixtures/testais')],
+                                     local_scheduler=True)
+
+        extracted_files = os.path.join(working_folder, 'files', 'unzipped', 'abc')
+        task = CountLines(zip_file=extracted_files)
+        luigi.build([task], local_scheduler=True)
+
+        path = os.path.join(working_folder, 'tmp/countraw/abc.csv')
+        assert os.path.exists(path)
+        with open(path, 'r') as actual_file:
+            for index, line in enumerate(actual_file.readlines()):
+                if index <= 5:
+                    expected = "100 {}/files/unzipped/abc/exactEarth_historical_data_2013090{}.csv".format(working_folder, index + 1)
+                else:
+                    expected = "600 total"
+                assert line.strip() == expected
+
+class TestCountAllFiles():
+    """
+    """
+    def test_GetCountsForAllFiles(self, setup_clean_db, set_env_vars,
+                                  setup_working_folder):
+        """
+        """
+        pass
 
 
 class TestGenerationOfValidCsv():
