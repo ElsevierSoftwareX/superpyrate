@@ -1,6 +1,6 @@
 from superpyrate.tasks import produce_valid_csv_file
 from superpyrate.pipeline import ClusterAisClean
-from superpyrate.task_countfiles import CountLines
+from superpyrate.task_countfiles import CountLines, GetCountsForAllFiles
 from conftest import set_env_vars, setup_clean_db, setup_working_folder
 import os
 import tempfile
@@ -71,7 +71,16 @@ class TestCountFiles():
         task = CountLines(zip_file=extracted_files)
         luigi.build([task], local_scheduler=True)
 
-        path = os.path.join(working_folder, 'tmp/countraw/abc.csv')
+        path = os.path.join(working_folder, 'tmp', 'countraw', 'abc.csv')
+        assert os.path.exists(path)
+        with open(path, 'r') as actual_file:
+            for index, line in enumerate(actual_file.readlines()):
+                if index <= 5:
+                    expected = "100 {}/files/unzipped/abc/exactEarth_historical_data_2013090{}.csv".format(working_folder, index + 1)
+                else:
+                    expected = "600 total"
+                assert line.strip() == expected
+        path = os.path.join(working_folder, 'tmp', 'countraw', 'efg.csv')
         assert os.path.exists(path)
         with open(path, 'r') as actual_file:
             for index, line in enumerate(actual_file.readlines()):
@@ -88,7 +97,24 @@ class TestCountAllFiles():
                                   setup_working_folder):
         """
         """
-        pass
+        working_folder = os.environ['LUIGIWORK']
+        # Setup existing workflow
+        luigi.build([ClusterAisClean('tests/fixtures/testais')],
+                                     local_scheduler=True)
+        task = GetCountsForAllFiles('tests/fixtures/testais', with_db=True)
+        luigi.build([task], local_scheduler=True)
+        expected = os.path.join(working_folder, 'tmp', 'countraw',
+                                'got_all_counts.txt')
+        assert os.path.exists(expected)
+        path = os.path.join(working_folder, 'tmp','countraw', 'abc.csv')
+        assert os.path.exists(path)
+        with open(path, 'r') as actual_file:
+            for index, line in enumerate(actual_file.readlines()):
+                if index <= 5:
+                    expected = "100 {}/files/unzipped/abc/exactEarth_historical_data_2013090{}.csv".format(working_folder, index + 1)
+                else:
+                    expected = "600 total"
+                assert line.strip() == expected
 
 
 class TestGenerationOfValidCsv():

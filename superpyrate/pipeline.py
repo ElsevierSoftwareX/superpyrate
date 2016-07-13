@@ -529,7 +529,7 @@ class ProcessZipArchives(luigi.Task):
             yield [ProcessCsv(arc) for arc in archives]
         with self.output().open('w') as outfile:
             for arc in list_of_archives:
-                outfile.write("{}".format(arc))
+                outfile.write("{}\n".format(arc))
 
     def output(self):
         LOGGER.debug("Folder of zips: {} with db {}".format(self.folder_of_zips,

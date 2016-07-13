@@ -65,15 +65,20 @@ class GetCountsForAllFiles(luigi.Task):
         """
         """
         paths_to_count = []
-
+        working_folder = get_working_folder()
         with self.input().open('r') as list_of_archives:
-            working_folder = get_working_folder()
+
             for archive in list_of_archives:
+                filename = os.path.basename(archive)
+                #Remove extension
+                name, ext = os.path.splitext(filename)
                 # count lines of each file in each unzipped archive stored in
                 # LUIGIWORK/files/unzipped/<name>
-                path = os.path.join(working_folder, 'files', 'unzipped', archive)
-                paths_to_count.append(path)
-        yield [CountLines(path) for path in paths_to_count]
+                path = os.path.join(working_folder, 'files', 'unzipped', name)
+                LOGGER.debug("Input path: {}".format(path))
+                if str(ext).strip() == '.zip':
+                    paths_to_count.append(path)
+        yield [CountLines(countable_path) for countable_path in paths_to_count]
 
         with self.output().open('w') as outfile:
             outfile.write("Finished task")
@@ -104,6 +109,7 @@ class CountLines(luigi.Task):
         """
         input_names = glob(self.input().fn + '/*')
         output_name = self.output().fn
+        LOGGER.debug('Counting lines in {} and saving to {}'.format(input_names, output_name))
         (wc['-l', input_names] > output_name)()
 
     def output(self):
@@ -115,3 +121,10 @@ class CountLines(luigi.Task):
         rootdir = get_working_folder()
         output_folder = os.path.join(rootdir,'tmp', 'countraw', out_folder_name + ".csv")
         return luigi.file.LocalTarget(output_folder)
+
+
+@requires(GetCountsForAllFiles)
+class WriteRawCountsToSourceTable():
+    """
+    """
+    
