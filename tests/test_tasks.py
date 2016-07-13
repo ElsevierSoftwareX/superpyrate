@@ -1,6 +1,7 @@
 from superpyrate.tasks import produce_valid_csv_file
 from superpyrate.pipeline import ClusterAisClean
-from superpyrate.task_countfiles import CountLines, GetCountsForAllFiles
+from superpyrate.task_countfiles import CountLines, GetCountsForAllFiles, \
+                                        ProduceStatisticsReport, DoIt
 from conftest import set_env_vars, setup_clean_db, setup_working_folder
 import os
 import tempfile
@@ -80,19 +81,7 @@ class TestCountFiles():
                 else:
                     expected = "600 total"
                 assert line.strip() == expected
-        path = os.path.join(working_folder, 'tmp', 'countraw', 'efg.csv')
-        assert os.path.exists(path)
-        with open(path, 'r') as actual_file:
-            for index, line in enumerate(actual_file.readlines()):
-                if index <= 5:
-                    expected = "100 {}/files/unzipped/abc/exactEarth_historical_data_2013090{}.csv".format(working_folder, index + 1)
-                else:
-                    expected = "600 total"
-                assert line.strip() == expected
 
-class TestCountAllFiles():
-    """
-    """
     def test_GetCountsForAllFiles(self, setup_clean_db, set_env_vars,
                                   setup_working_folder):
         """
@@ -115,6 +104,40 @@ class TestCountAllFiles():
                 else:
                     expected = "600 total"
                 assert line.strip() == expected
+        path = os.path.join(working_folder, 'tmp', 'countraw', 'efg.csv')
+        assert os.path.exists(path)
+        with open(path, 'r') as actual_file:
+            for index, line in enumerate(actual_file.readlines()):
+                if index <= 5:
+                    expected = "100 {}/files/unzipped/efg/exactEarth_historical_data_201309{:02}.csv".format(working_folder, index + 7)
+                else:
+                    expected = "600 total"
+                assert line.strip() == expected
+
+    def test_DoIts(self, setup_clean_db, set_env_vars,
+                   setup_working_folder):
+        """
+        """
+        luigi.build([ClusterAisClean('tests/fixtures/testais')],
+                                     local_scheduler=True)
+        task = DoIt('tests/fixtures/testais', with_db=True)
+        luigi.build([task], local_scheduler=True)
+
+    def test_ProduceStatisticsReport(self, setup_clean_db, set_env_vars,
+                                     setup_working_folder):
+        """
+        """
+        working_folder = os.environ['LUIGIWORK']
+        luigi.build([ClusterAisClean('tests/fixtures/testais')],
+                                     local_scheduler=True)
+        task = ProduceStatisticsReport(folder_of_zips='tests/fixtures/testais',
+                                       with_db=True)
+        luigi.build([task], local_scheduler=True)
+        expected = os.path.join(working_folder, 'files', 'data_statistics.csv')
+        assert os.path.exists(expected)
+        with open(expected, 'r') as actual_file:
+            for row in actual_file:
+                print(row)
 
 
 class TestGenerationOfValidCsv():

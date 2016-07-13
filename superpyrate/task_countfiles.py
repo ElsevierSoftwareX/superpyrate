@@ -3,13 +3,20 @@
 Records the number of clean and dirty rows in the AIS data,
 writing these stats to the database and finally producing a report of the
 statistics
+
+1. Count the number of rows in the raw csv files (in ``files/unzipped/<archive>``)
+2. Count the number of rows int the clean csv files (in ``files/cleancsv/``)
+3. Write the clean rows in the clean column of ais_sources
+4. Write the dirty (raw - clean) rows into the dirty column of ais_sources
+
 """
 import luigi
 from luigi.util import requires
 from luigi.contrib.external_program import ExternalProgramTask
 from luigi.postgres import CopyToTable, PostgresQuery
 from superpyrate.pipeline import get_environment_variable, ProcessZipArchives, \
-                                 GetZipArchive, get_working_folder
+                                 GetZipArchive, get_working_folder, \
+                                 RunQueryOnTable, GetCsvFile
 from plumbum.cmd import wc
 from glob import glob
 import os
@@ -30,7 +37,8 @@ class ProduceStatisticsReport(PostgresQuery):
     database = get_environment_variable('DBNAME')
     user = get_environment_variable('DBUSER')
     password = get_environment_variable('DBUSERPASS')
-    query = "SELECT filename, clean, dirty, (clean / dirty * 100) as coverage " \
+    query = "SELECT filename, clean, dirty, "\
+            "(clean / (CASE dirty WHEN 0 THEN NULL ELSE dirty END) * 100) as coverage " \
             "FROM ais_sources;"
     table = 'ais_sources'
     update_id = 'stats_report'
@@ -44,8 +52,9 @@ class ProduceStatisticsReport(PostgresQuery):
 
         LOGGER.info('Executing query from task: {name}'.format(name=self.__class__))
         cursor.execute(sql)
-
-        with open('files/data_statistics.csv', 'w') as report_file:
+        working_folder = get_working_folder()
+        path = os.path.join(working_folder, 'files', 'data_statistics.csv')
+        with open(path, 'w') as report_file:
             for row in cursor.fetchall():
                 report_file.writeline(row)
 
@@ -59,13 +68,13 @@ class ProduceStatisticsReport(PostgresQuery):
 
 @requires(ProcessZipArchives)
 class GetCountsForAllFiles(luigi.Task):
-    """
+    """Counts the rows in all clean (validated) and raw files
     """
     def run(self):
         """
         """
-        paths_to_count = []
         working_folder = get_working_folder()
+        paths_to_count = [os.path.join(working_folder, 'files', 'cleancsv')]
         with self.input().open('r') as list_of_archives:
 
             for archive in list_of_archives:
@@ -123,8 +132,43 @@ class CountLines(luigi.Task):
         return luigi.file.LocalTarget(output_folder)
 
 
-@requires(GetCountsForAllFiles)
-class WriteRawCountsToSourceTable():
+
+class DoIt(luigi.Task):
     """
     """
-    
+    folder_of_zips = luigi.Parameter(significant=True)
+    with_db = luigi.BoolParameter(significant=False)
+
+    def requires(self):
+        working_folder = get_working_folder()
+        clean_path = os.path.join(working_folder, 'tmp', 'countraw', 'cleancsv.csv')
+        return [GetCsvFile(clean_path), GetCountsForAllFiles(self.folder_of_zips, self.with_db)]
+
+    def run(self):
+        clean_counts = self.input()[0]
+        raw_counts = self.input()[1]
+        with clean_counts.open('r') as clean_counts_file:
+            for row in clean_counts_file:
+                count, filename = row.split(" ")
+
+
+
+class WriteRawCountsToSourceTable(luigi.Task):
+    """
+    """
+    filename = luigi.Parameter(significant=True)
+    clean_count = luigi.IntParameter(significant=False)
+    dirty_count = luigi.IntParameter(significant=False)
+
+    def run(self):
+        query = "UPDATE ais_sources "\
+                "SET clean = {}, dirty = {} " \
+                "WHERE filename = {};".format(clean_count,
+                                              dirty_count,
+                                              filename)
+        table = 'ais_sources'
+
+        return RunQueryOnTable(query, table)
+
+    def output(self):
+        pass
