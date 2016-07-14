@@ -35,6 +35,7 @@ def set_env_vars():
 def setup_working_folder(tmpdir):
     tempfilepath = tmpdir.mkdir("working_folder")
     os.environ['LUIGIWORK'] = str(tempfilepath)
+    return tempfilepath
 
 
 @pytest.fixture(scope='function')

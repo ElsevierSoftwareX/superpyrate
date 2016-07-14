@@ -1,4 +1,4 @@
-"""
+"""Contains the code for validating AIS messages
 """
 import csv
 import sys
@@ -32,6 +32,16 @@ FORCED_COL_MAP = {'MMSI': 'MMSI',
 
 
 def learn_columns(read_cols, required_cols, csv_or_xml='csv'):
+    """Tries to match the read columns with the list given
+
+    Arguments
+    =========
+    read_cols : dict
+        The columns read from the csv file
+    required_cols : list
+        A list of the columns required from the csv file
+    csv_or_xml : str, default='csv'
+    """
     if csv_or_xml == 'csv':
         matched_cols = {}
         for col in required_cols:
@@ -43,6 +53,7 @@ def learn_columns(read_cols, required_cols, csv_or_xml='csv'):
 
 def produce_valid_csv_file(inputf, outputf):
     """
+
     Arguments
     ---------
     input_file :
@@ -85,11 +96,11 @@ def produce_valid_csv_file(inputf, outputf):
                         # validate parsed row
                         try:
                             validated_row = validate_row(converted_row)
-                        except ValueError:
-                            LOGGER.error("Error in validating the convered row: {}".format(converted_row))
+                        except ValueError as e:
+                            LOGGER.error("Error in validating the convered row: {}".format(e))
                         else:
                             try:
-                                LOGGER.debug("Attempting writing validated data to file.")
+                                # LOGGER.debug("Attempting writing validated data to file.")
                                 writer.writerow(validated_row)
                             except ValueError as ve:
                                 LOGGER.error("Error in writing validated row to csvfile: {}".format(ve))
@@ -98,6 +109,8 @@ def produce_valid_csv_file(inputf, outputf):
                     LOGGER.info("Illegal row, so not writing to file.")
 
 def unfussy_reader(csv_reader):
+    """
+    """
     while True:
         try:
             yield next(csv_reader)
@@ -113,7 +126,7 @@ def unfussy_reader(csv_reader):
             continue
 
 def readcsv(fp, forced_col_map=None, columns=None):
-    """ Yields a dctionary of the subset of columns required
+    """Yields a dctionary of the subset of columns required
 
     Reads each line in CSV file, checks if all columns are available,
     and returns a dictionary of the subset of columns required
@@ -211,7 +224,7 @@ def readcsv(fp, forced_col_map=None, columns=None):
         if len(row) == len(cols):
             for col in columns:
                 rowsubset[col] = row[indices[col]]  # raw column data
-            LOGGER.debug("Legal row found: {}".format(rowsubset))
+            # LOGGER.debug("Legal row found: {}".format(rowsubset))
             yield rowsubset
         else:
             LOGGER.debug("""Expected column length doesn't match row in file: {}.

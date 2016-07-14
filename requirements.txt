@@ -5,3 +5,4 @@ luigi>=2.1.0
 psycopg2
 -e git+https://github.com/UCL-ShippingGroup/pyrate.git#egg=pyrate-v0.1.5
 fuzzywuzzy
+plumbum
