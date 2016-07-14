@@ -29,41 +29,6 @@ logging.basicConfig(filename='reporting.log',
                     format='%(asctime)s - %(levelname)s - %(message)s',
                     datefmt='%m/%d/%Y %I:%M:%S %p')
 
-@requires(ProcessZipArchives)
-class ProduceStatisticsReport(PostgresQuery):
-    """Produces a report of the data statistics
-    """
-    host = get_environment_variable('DBHOSTNAME')
-    database = get_environment_variable('DBNAME')
-    user = get_environment_variable('DBUSER')
-    password = get_environment_variable('DBUSERPASS')
-    query = "SELECT filename, clean, dirty, "\
-            "(clean / (CASE dirty WHEN 0 THEN NULL ELSE dirty END) * 100) as coverage " \
-            "FROM ais_sources;"
-    table = 'ais_sources'
-    update_id = 'stats_report'
-
-    def run(self):
-        """Produce the report and write to a file
-        """
-        connection = self.output().connect()
-        cursor = connection.cursor()
-        sql = self.query
-
-        LOGGER.info('Executing query from task: {name}'.format(name=self.__class__))
-        cursor.execute(sql)
-        working_folder = get_working_folder()
-        path = os.path.join(working_folder, 'files', 'data_statistics.csv')
-        with open(path, 'w') as report_file:
-            for row in cursor.fetchall():
-                report_file.writeline(row)
-
-        # Update marker table
-        self.output().touch(connection)
-
-        # commit and close connection
-        connection.commit()
-        connection.close()
 
 
 @requires(ProcessZipArchives)
@@ -90,7 +55,8 @@ class GetCountsForAllFiles(luigi.Task):
         yield [CountLines(countable_path) for countable_path in paths_to_count]
 
         with self.output().open('w') as outfile:
-            outfile.write("Finished task")
+            for countable_path in paths_to_count:
+                outfile.write("{}\n".format(countable_path))
 
     def output(self):
         rootdir = get_working_folder()
@@ -132,7 +98,6 @@ class CountLines(luigi.Task):
         return luigi.file.LocalTarget(output_folder)
 
 
-
 class DoIt(luigi.Task):
     """
     """
@@ -140,35 +105,100 @@ class DoIt(luigi.Task):
     with_db = luigi.BoolParameter(significant=False)
 
     def requires(self):
+        return GetCountsForAllFiles(self.folder_of_zips, self.with_db)
+
+    def run(self):
         working_folder = get_working_folder()
-        clean_path = os.path.join(working_folder, 'tmp', 'countraw', 'cleancsv.csv')
-        return [GetCsvFile(clean_path), GetCountsForAllFiles(self.folder_of_zips, self.with_db)]
+        count_folder = os.path.join(working_folder, 'tmp', 'countraw')
+        clean_path = os.path.join(count_folder, 'cleancsv.csv')
 
-    def run(self):
-        clean_counts = self.input()[0]
-        raw_counts = self.input()[1]
-        with clean_counts.open('r') as clean_counts_file:
+        countfiles = os.listdir(count_folder)
+        LOGGER.debug("Files in tmp/countraw: {}".format(countfiles))
+        filtered_countfiles = [a for a in countfiles if (a != 'cleancsv.csv' and a.endswith('.csv'))]
+        LOGGER.debug("Files in tmp/countraw after filtering: {}".format(filtered_countfiles))
+        if len(filtered_countfiles) == 0:
+            raise RuntimeError("No counted files available")
+            LOGGER.error("No counted files available")
+
+        clean_results = {}
+        raw_results = {}
+        counts = []
+        with open(clean_path, 'r') as clean_counts_file:
             for row in clean_counts_file:
-                count, filename = row.split(" ")
+                LOGGER.debug(row.strip().split(" "))
+                count, filename = row.strip().split(" ")
+                just_filename = os.path.basename(filename)
+                clean_results[just_filename] = int(count)
 
+        for filename in filtered_countfiles:
+            results_file = os.path.join(count_folder, filename)
+            with open(results_file, 'r') as open_results_file:
+                for row in open_results_file:
+                    LOGGER.debug(row.strip().split(" "))
+                    count, filename = row.strip().split(" ")
+                    just_filename = os.path.basename(filename)
+                    raw_results[just_filename] = int(count)
+        _ = raw_results.pop('total')
+        _ = clean_results.pop('total')
+        LOGGER.debug("Keys: {}; {}".format(raw_results.keys(), clean_results.keys()))
+        for filename in raw_results.keys():
+            clean = clean_results[filename]
+            dirty = raw_results[filename] - clean
+            # filepath = os.path.join(working_folder, 'files', 'unzipped', filename)
+            counts.append((filename, clean, dirty))
+        LOGGER.debug("Counts of file {}".format(counts))
 
-
-class WriteRawCountsToSourceTable(luigi.Task):
-    """
-    """
-    filename = luigi.Parameter(significant=True)
-    clean_count = luigi.IntParameter(significant=False)
-    dirty_count = luigi.IntParameter(significant=False)
-
-    def run(self):
-        query = "UPDATE ais_sources "\
-                "SET clean = {}, dirty = {} " \
-                "WHERE filename = {};".format(clean_count,
-                                              dirty_count,
-                                              filename)
+        queries = [("UPDATE ais_sources "\
+                   "SET clean = {}, dirty = {} " \
+                   "WHERE filename = '{}';".format(clean_count,
+                                                   dirty_count,
+                                                   filename), filename)
+                   for (filename, clean_count, dirty_count) in counts ]
         table = 'ais_sources'
+        yield [RunQueryOnTable(query, table, id) for query, id in queries]
 
-        return RunQueryOnTable(query, table)
+        with self.output().open('w') as outfile:
+            outfile.write("Done")
 
     def output(self):
-        pass
+        working_folder = get_working_folder()
+        path = os.path.join(working_folder, 'tmp', 'database', 'reports.txt')
+        return luigi.file.LocalTarget(path)
+
+
+
+@requires(DoIt)
+class ProduceStatisticsReport(PostgresQuery):
+    """Produces a report of the data statistics
+    """
+    host = get_environment_variable('DBHOSTNAME')
+    database = get_environment_variable('DBNAME')
+    user = get_environment_variable('DBUSER')
+    password = get_environment_variable('DBUSERPASS')
+    query = "SELECT filename, clean, dirty, round(1.0*dirty/(clean+dirty), 2) " \
+            "AS coverage FROM ais_sources ORDER BY filename ASC;"
+    table = 'ais_sources'
+    update_id = 'stats_report'
+
+    def run(self):
+        """Produce the report and write to a file
+        """
+        connection = self.output().connect()
+        cursor = connection.cursor()
+        sql = self.query
+
+        LOGGER.info('Executing query from task: {name}'.format(name=self.__class__))
+        cursor.execute(sql)
+        working_folder = get_working_folder()
+        path = os.path.join(working_folder, 'files', 'data_statistics.csv')
+        with open(path, 'w') as report_file:
+            report_file.write("{} {} {} {}".format('filename', 'clean', 'dirty', 'coverage'))
+            for filename, clean, dirty, coverage in cursor.fetchall():
+                report_file.write("{} {} {} {}".format(filename, clean, dirty, coverage))
+
+        # Update marker table
+        self.output().touch(connection)
+
+        # commit and close connection
+        connection.commit()
+        connection.close()

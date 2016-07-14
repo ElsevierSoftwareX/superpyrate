@@ -96,11 +96,11 @@ def produce_valid_csv_file(inputf, outputf):
                         # validate parsed row
                         try:
                             validated_row = validate_row(converted_row)
-                        except ValueError:
-                            LOGGER.error("Error in validating the convered row: {}".format(converted_row))
+                        except ValueError as e:
+                            LOGGER.error("Error in validating the convered row: {}".format(e))
                         else:
                             try:
-                                LOGGER.debug("Attempting writing validated data to file.")
+                                # LOGGER.debug("Attempting writing validated data to file.")
                                 writer.writerow(validated_row)
                             except ValueError as ve:
                                 LOGGER.error("Error in writing validated row to csvfile: {}".format(ve))
@@ -224,7 +224,7 @@ def readcsv(fp, forced_col_map=None, columns=None):
         if len(row) == len(cols):
             for col in columns:
                 rowsubset[col] = row[indices[col]]  # raw column data
-            LOGGER.debug("Legal row found: {}".format(rowsubset))
+            # LOGGER.debug("Legal row found: {}".format(rowsubset))
             yield rowsubset
         else:
             LOGGER.debug("""Expected column length doesn't match row in file: {}.

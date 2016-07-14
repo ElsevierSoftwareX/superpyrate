@@ -440,7 +440,7 @@ class LoadCleanedAIS(CopyToTable):
 
     def run(self):
         # Prepare source data to add to ais_sources
-        source_data = {'filename': self.csvfile,
+        source_data = {'filename': os.path.basename(self.csvfile),
                        'ext': os.path.splitext(self.csvfile)[1],
                        'invalid': 0,
                        'clean': 0,
@@ -557,6 +557,7 @@ class RunQueryOnTable(PostgresQuery):
     """
     query = luigi.Parameter()
     table = luigi.Parameter(default='ais_clean')
+    update_id = luigi.Parameter()
 
     host = get_environment_variable('DBHOSTNAME')
     database = get_environment_variable('DBNAME')
@@ -600,11 +601,14 @@ class MakeAllIndices(luigi.Task):
         queries = []
         for idx, cols in indices:
             idxn = self.table.lower() + "_" + idx
-            queries.append("CREATE INDEX \"" +
-                           idxn +"\" ON \""+ self.table + "\" USING btree (" +
-                           ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
+            sql = ("CREATE INDEX \"" +
+                   idxn +"\" ON \""+ self.table + "\" USING btree (" +
+                   ','.join(["\"{}\"".format(s.lower()) for s in cols]) +")")
+            update_id = self.__class__.__name__ + idxn
+            queries.append((sql, update_id))
 
-        yield [RunQueryOnTable(query, self.table) for query in queries]
+
+        yield [RunQueryOnTable(query, self.table, up_id) for query, up_id in queries]
 
         with self.output().open('w') as outfile:
             outfile.write(self.table)

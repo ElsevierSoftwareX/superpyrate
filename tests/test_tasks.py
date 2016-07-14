@@ -114,13 +114,14 @@ class TestCountFiles():
                     expected = "600 total"
                 assert line.strip() == expected
 
-    def test_DoIts(self, setup_clean_db, set_env_vars,
-                   setup_working_folder):
+    def test_DoIt(self, setup_clean_db, set_env_vars,
+                  setup_working_folder):
         """
         """
-        luigi.build([ClusterAisClean('tests/fixtures/testais')],
+        working_folder = os.environ['LUIGIWORK']
+        luigi.build([ClusterAisClean(folder_of_zips='tests/fixtures/testais')],
                                      local_scheduler=True)
-        task = DoIt('tests/fixtures/testais', with_db=True)
+        task = DoIt(folder_of_zips='tests/fixtures/testais', with_db=True)
         luigi.build([task], local_scheduler=True)
 
     def test_ProduceStatisticsReport(self, setup_clean_db, set_env_vars,
@@ -128,16 +129,31 @@ class TestCountFiles():
         """
         """
         working_folder = os.environ['LUIGIWORK']
-        luigi.build([ClusterAisClean('tests/fixtures/testais')],
+        expected_folder = os.path.join(working_folder, 'files', 'unzipped')
+        luigi.build([DoIt('tests/fixtures/testais', with_db=True)],
                                      local_scheduler=True)
         task = ProduceStatisticsReport(folder_of_zips='tests/fixtures/testais',
                                        with_db=True)
         luigi.build([task], local_scheduler=True)
-        expected = os.path.join(working_folder, 'files', 'data_statistics.csv')
-        assert os.path.exists(expected)
-        with open(expected, 'r') as actual_file:
-            for row in actual_file:
-                print(row)
+        expected_file = os.path.join(working_folder, 'files', 'data_statistics.csv')
+        assert os.path.exists(expected_file)
+        assert os.path.getsize(expected_file) > 0
+        expected_contents = [('exactEarth_historical_data_20130901.csv',  '88', '12', '0.12'),
+                             ('exactEarth_historical_data_20130902.csv', '100',  '0', '0.00'),
+                             ('exactEarth_historical_data_20130903.csv',  '94',  '6', '0.06'),
+                             ('exactEarth_historical_data_20130904.csv', '100',  '0', '0.00'),
+                             ('exactEarth_historical_data_20130905.csv',  '94',  '6', '0.06'),
+                             ('exactEarth_historical_data_20130906.csv', '100',  '0', '0.00'),
+                             ('exactEarth_historical_data_20130907.csv',  '88', '12', '0.12'),
+                             ('exactEarth_historical_data_20130908.csv', '100',  '0', '0.00'),
+                             ('exactEarth_historical_data_20130909.csv', '100',  '0', '0.00'),
+                             ('exactEarth_historical_data_20130910.csv',  '94',  '6', '0.06'),
+                             ('exactEarth_historical_data_20130911.csv', '100',  '0', '0.00'),
+                             ('exactEarth_historical_data_20130912.csv',  '94',  '6', '0.06')]
+        with open(expected_file, 'r') as actual_file:
+            actual_file.readline()
+            for actual_row, expected_row in zip(actual_file, expected_contents):
+                assert actual_row == " ".join(expected_row)
 
 
 class TestGenerationOfValidCsv():
