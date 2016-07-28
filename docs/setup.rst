@@ -26,6 +26,47 @@ to INFO only to avoid the generation of GB-scale log files.
 This is easily done using a python logging configuration file, and referencing
 the path to the logging config in the luigi configuration file.
 
+The contents of the python logging file should look something like this::
+
+    [loggers]
+    keys=root,luigi
+
+    [handlers]
+    keys=consoleHandler,fileHandler
+
+    [formatters]
+    keys=fileFormatter,consoleFormatter
+
+    [logger_root]
+    level=INFO
+    handlers=consoleHandler
+
+    [logger_luigi]
+    level=INFO
+    handlers=consoleHandler,fileHandler
+    qualname=luigi.interface
+    propagate=0
+
+    [handler_consoleHandler]
+    class=StreamHandler
+    level=WARNING
+    formatter=consoleFormatter
+    args=(sys.stdout,)
+
+    [handler_fileHandler]
+    class=FileHandler
+    level=INFO
+    formatter=fileFormatter
+    args=('logfile.log',)
+
+    [formatter_fileFormatter]
+    format=%(asctime)s - %(name)s - %(levelname)s - %(message)s
+    datefmt=
+
+    [formatter_consoleFormatter]
+    format=%(levelname)s - %(message)s
+    datefmt=
+
 Luigi
 -----
 The luigi configuration file can be placed anywhere and is specified through the
@@ -33,6 +74,24 @@ environment variable ``LUIGI_CONFIG_PATH``.
 
 More information about the configuration file can be found in the luigi
 documentation_.
+
+Here's an example configuration file::
+
+    [resources]
+    postgres=12
+    matlab=120
+    postgres_linuxbox=100
+
+    [core]
+    email-type=html
+    error-email=user@ucl.ac.uk
+    default-scheduler-host=123.45.678.910
+    default-scheduler-port=8028
+    logging_conf_file=/home/username/logging.conf
+
+    [worker]
+    keep_alive=False
+    ping_interval=30
 
 .. _documentation: http://luigi.readthedocs.io/en/stable/configuration.html
 
@@ -128,6 +187,9 @@ If you have `legion-scripts`_ installed,
 then you can just run the ``load_postgres.sh`` script.
 
 .. _legion-scripts: https://github.com/UCL-ShippingGroup/legion_scripts.git
+
+Otherwise, we assume install on linux.  For MacOSx, Windows and other architectures,
+refer to the packages and documentation for postgres available on the website.
 
 .. _compiling:
 

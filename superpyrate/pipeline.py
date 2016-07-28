@@ -64,15 +64,16 @@ point.
 For example, to run the entire pipeline, producing a full ingested and clustered
 database, run::
 
-    luigi --module opepr.message ClusterAisClean
+    luigi --module superpyrate.pipeline ClusterAisClean
           --workers 12
+          --folder-of-zips /folder/of/zips/
+          --with_db
 
 If only the validated csv files are required, run::
 
-    luigi --module opepr.message ProcessZipArchives
+    luigi --module superpyrate.pipeline ProcessZipArchives
           --workers 12
           --folder-of-zips /folder/of/zips/
-          --shell-script /path/to/unzip/shell/script
           --with_db
 
 Working folder
