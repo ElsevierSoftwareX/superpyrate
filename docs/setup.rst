@@ -188,6 +188,9 @@ then you can just run the ``load_postgres.sh`` script.
 
 .. _legion-scripts: https://github.com/UCL-ShippingGroup/legion_scripts.git
 
+Otherwise, we assume install on linux.  For MacOSx, Windows and other architectures,
+refer to the packages and documentation for postgres available on the website.
+
 .. _compiling:
 
 Compiling from source
