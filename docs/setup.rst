@@ -168,7 +168,7 @@ superpyrate::
 Add a configuration file for py:mod:`luigi`::
 
     [core]
-    default-scheduler-host=***REMOVED***
+    default-scheduler-host=128.40.181.109
     default-scheduler-port=8028
     logging_conf_file=/home/ucftxyz/logging.conf
 
