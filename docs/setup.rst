@@ -104,9 +104,7 @@ This file contains a number of server specific settings which dramatically affec
 the performance of the database, particular for memory and processor intensive
 operations such as index generation, clustering and bulk copying of data.
 
-Various postgres configuration files are stored in a github `repository`_.
-
-.. _repository: https://gist.github.com/willu47/d4b0f246e4cb4f079b4e415528fbcdd2
+There is a lot of information on how to tweak these settings available online.
 
 Setup for ingest
 ================
@@ -168,8 +166,8 @@ superpyrate::
 Add a configuration file for py:mod:`luigi`::
 
     [core]
-    default-scheduler-host=128.40.181.109
-    default-scheduler-port=8028
+    default-scheduler-host=123.45.678.910
+    default-scheduler-port=1234
     logging_conf_file=/home/ucftxyz/logging.conf
 
     [worker]
@@ -181,81 +179,28 @@ Add a configuration file for py:mod:`luigi`::
 Installation
 ============
 
-Using Legion, loading postgres is as simple as loading the required modules:
+Non-UCL Users
+-------------
+
+To install superpyrate, its necessary to install Postgresql,
+and the superpyrate package.
+
+Instructions for how to install `Postgresql`_ can be found on the website.
+
+.. _Postgresql: https://www.postgresql.org/download/
+
+You'll also need an install of Python 3.x.
+
+UCL Users
+---------
+
+Using Legion (UCL's high-performance computing assets),
+loading Postgresql is as simple as loading the required modules:
 
 If you have `legion-scripts`_ installed,
 then you can just run the ``load_postgres.sh`` script.
 
 .. _legion-scripts: https://github.com/UCL-ShippingGroup/legion_scripts.git
 
-Otherwise, we assume install on linux.  For MacOSx, Windows and other architectures,
-refer to the packages and documentation for postgres available on the website.
-
-.. _compiling:
-
-Compiling from source
-=====================
-
-First, install postgres::
-
-    cd $HOME
-    wget https://ftp.postgresql.org/pub/source/v9.5.2/postgresql-9.5.2.tar.gz
-    gunzip postgresql-9.5.2.tar.gz
-    tar xf postgresql-9.5.2.tar
-    cd postgresql-9.5.2
-    # Install a local version of postgres in the user directory on the login node
-    ./configure --prefix=$HOME/pgsql
-    ./make -s
-    ./make install
-    ./make clean
-    # Setup path
-    echo 'PATH=$HOME/pgsql/bin:$PATH' >> ~/.bash_profile
-
-
-Installing postgis, is painful::
-
-    # Obtain, compile and install postgis and its requirements (GEOS, PROJ4, GDAL)
-    cd $HOME
-    svn checkout http://svn.osgeo.org/geos/trunk geos-svn
-    cd geos-svn
-    ./autogen.sh
-    ./configure --prefix=$HOME/geos
-    ./make -s
-    ./make install
-    echo 'PATH=$HOME/geos/bin:$PATH' >> ~/.bash_profile
-    echo 'export LD_LIBRARY_PATH=$HOME/geos/lib:$LD_LIBRARY_PATH' >> ~/.bash_profile
-
-
-    cd $HOME
-    wget http://download.osgeo.org/proj/proj-4.9.1.tar.gz
-    tar xf proj-4.9.1.tar.gz
-    cd proj-4.9.1
-    ./configure --prefix=$HOME/proj4
-    ./make
-    ./make install
-    echo 'PATH=$HOME/proj4/bin:$PATH' >> ~/.bash_profile
-    echo 'export LD_LIBRARY_PATH=$HOME/proj4/lib:$LD_LIBRARY_PATH' >> ~/.bash_profile
-
-
-    cd $HOME
-    wget http://download.osgeo.org/gdal/2.1.0/gdal-2.1.0.tar.gz
-    tar xf gdal-2.1.0.tar.gz
-    cd gdal-2.1.0
-    ./configure --prefix=$HOME/gdal
-    ./make
-    ./make install
-    echo 'export PATH=/$HOME/gdal/bin:$PATH' >> ~/.bash_profile
-    echo 'export LD_LIBRARY_PATH=$HOME/gdal/lib:$LD_LIBRARY_PATH' >> ~/.bash_profile
-    echo 'export GDAL_DATA=$HOME/gdal/share/gdal' >> ~/.bash_profile
-    echo 'export PATH' >> ~/.bash_profile
-    # Test
-    #% gdalinfo --version
-    # See below for installation of Python bindings
-
-
-    wget http://download.osgeo.org/postgis/source/postgis-2.2.2.tar.gz
-    tar xf postgis-2.2.2.tar.gz
-    cd postgis-2.2.2
-    ./configure --prefix=$HOME/postgis
-    ./make
-    ./make install
+Otherwise, we assume install on Linux.  For MacOSx, Windows and other architectures,
+refer to the packages and documentation for Postgresql available on the website.
