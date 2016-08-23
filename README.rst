@@ -5,7 +5,13 @@ superpyrate
 .. image:: https://travis-ci.com/UCL-ShippingGroup/superpyrate.svg?token=zHcMSQsYgUFq9yhr52P7&branch=master
     :target: https://travis-ci.com/UCL-ShippingGroup/superpyrate
 
+.. image:: https://readthedocs.org/projects/superpyrate/badge/?version=latest
+    :target: http://superpyrate.readthedocs.io/en/latest/?badge=latest
+    :alt: Documentation Status
+
 Does what pyrate does, but supercharged.
+
+
 
 
 Description
